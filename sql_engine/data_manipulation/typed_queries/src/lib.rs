@@ -15,36 +15,36 @@
 use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
 use definition::FullTableName;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TypedInsertQuery {
     pub full_table_name: FullTableName,
     pub values: Vec<Vec<Option<StaticTypedTree>>>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TypedDeleteQuery {
     pub full_table_name: FullTableName,
     pub filter: Option<DynamicTypedTree>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TypedUpdateQuery {
     pub full_table_name: FullTableName,
     pub assignments: Vec<Option<DynamicTypedTree>>,
     pub filter: Option<DynamicTypedTree>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
+pub struct TypedSelectQuery {
+    pub full_table_name: FullTableName,
+    pub projection_items: Vec<DynamicTypedTree>,
+    pub filter: Option<DynamicTypedTree>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum TypedQuery {
     Insert(TypedInsertQuery),
     Delete(TypedDeleteQuery),
     Update(TypedUpdateQuery),
     Select(TypedSelectQuery),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct TypedSelectQuery {
-    pub full_table_name: FullTableName,
-    pub projection_items: Vec<DynamicTypedTree>,
-    pub filter: Option<DynamicTypedTree>,
 }

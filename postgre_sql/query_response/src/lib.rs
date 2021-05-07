@@ -63,29 +63,29 @@ pub enum QueryEvent {
     BindComplete,
 }
 
-impl From<QueryEvent> for Outbound {
-    fn from(event: QueryEvent) -> Outbound {
+impl From<QueryEvent> for OutboundMessage {
+    fn from(event: QueryEvent) -> OutboundMessage {
         match event {
-            QueryEvent::SchemaCreated => Outbound::SchemaCreated,
-            QueryEvent::SchemaDropped => Outbound::SchemaDropped,
-            QueryEvent::TableCreated => Outbound::TableCreated,
-            QueryEvent::TableDropped => Outbound::TableDropped,
-            QueryEvent::IndexCreated => Outbound::IndexCreated,
-            QueryEvent::VariableSet => Outbound::VariableSet,
-            QueryEvent::TransactionStarted => Outbound::TransactionBegin,
-            QueryEvent::RecordsInserted(records) => Outbound::RecordsInserted(records),
-            QueryEvent::RowDescription(description) => Outbound::RowDescription(description),
-            QueryEvent::DataRow(row) => Outbound::DataRow(row),
-            QueryEvent::RecordsSelected(records) => Outbound::RecordsSelected(records),
-            QueryEvent::RecordsUpdated(records) => Outbound::RecordsUpdated(records),
-            QueryEvent::RecordsDeleted(records) => Outbound::RecordsDeleted(records),
-            QueryEvent::StatementPrepared => Outbound::StatementPrepared,
-            QueryEvent::StatementDeallocated => Outbound::StatementDeallocated,
-            QueryEvent::StatementParameters(param_types) => Outbound::StatementParameters(param_types),
-            QueryEvent::StatementDescription(description) => Outbound::StatementDescription(description),
-            QueryEvent::QueryComplete => Outbound::ReadyForQuery,
-            QueryEvent::ParseComplete => Outbound::ParseComplete,
-            QueryEvent::BindComplete => Outbound::BindComplete,
+            QueryEvent::SchemaCreated => OutboundMessage::SchemaCreated,
+            QueryEvent::SchemaDropped => OutboundMessage::SchemaDropped,
+            QueryEvent::TableCreated => OutboundMessage::TableCreated,
+            QueryEvent::TableDropped => OutboundMessage::TableDropped,
+            QueryEvent::IndexCreated => OutboundMessage::IndexCreated,
+            QueryEvent::VariableSet => OutboundMessage::VariableSet,
+            QueryEvent::TransactionStarted => OutboundMessage::TransactionBegin,
+            QueryEvent::RecordsInserted(records) => OutboundMessage::RecordsInserted(records),
+            QueryEvent::RowDescription(description) => OutboundMessage::RowDescription(description),
+            QueryEvent::DataRow(row) => OutboundMessage::DataRow(row),
+            QueryEvent::RecordsSelected(records) => OutboundMessage::RecordsSelected(records),
+            QueryEvent::RecordsUpdated(records) => OutboundMessage::RecordsUpdated(records),
+            QueryEvent::RecordsDeleted(records) => OutboundMessage::RecordsDeleted(records),
+            QueryEvent::StatementPrepared => OutboundMessage::StatementPrepared,
+            QueryEvent::StatementDeallocated => OutboundMessage::StatementDeallocated,
+            QueryEvent::StatementParameters(param_types) => OutboundMessage::StatementParameters(param_types),
+            QueryEvent::StatementDescription(description) => OutboundMessage::StatementDescription(description),
+            QueryEvent::QueryComplete => OutboundMessage::ReadyForQuery,
+            QueryEvent::ParseComplete => OutboundMessage::ParseComplete,
+            QueryEvent::BindComplete => OutboundMessage::BindComplete,
         }
     }
 }
@@ -474,9 +474,9 @@ impl QueryError {
     }
 }
 
-impl From<QueryError> for Outbound {
+impl From<QueryError> for OutboundMessage {
     fn from(error: QueryError) -> Self {
-        Outbound::Error(error.severity().to_owned(), error.code().to_owned(), error.message())
+        OutboundMessage::Error(error.severity().to_owned(), error.code().to_owned(), error.message())
     }
 }
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::query_engine_old::QueryEngineOld;
+use crate::worker::Worker;
 use native_tls::Identity;
 use postgre_sql::wire_protocol::PgWireAcceptor;
 use std::{
@@ -21,15 +21,14 @@ use std::{
     io::{self, Read},
     net::TcpListener,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
     thread,
 };
 use storage::Database;
 
 #[derive(Default, Clone)]
-pub struct NodeEngineOld;
+pub struct NodeEngine;
 
-impl NodeEngineOld {
+impl NodeEngine {
     pub fn start(&self, database: Database) {
         let listener = TcpListener::bind("0.0.0.0:5432").expect("create listener");
 
@@ -50,34 +49,13 @@ impl NodeEngineOld {
                                 _ => PgWireAcceptor::new(None),
                             };
 
-                        let connection = acceptor.accept(socket).unwrap();
+                        let mut connection = acceptor.accept(socket).unwrap();
 
-                        let arc = Arc::new(Mutex::new(connection));
-                        let mut query_engine = QueryEngineOld::new(arc.clone(), db);
-                        log::debug!("ready to handle query");
+                        let worker = Worker;
 
-                        loop {
-                            let mut guard = arc.lock().unwrap();
-                            let result = guard.receive();
-                            drop(guard);
-                            log::debug!("{:?}", result);
-                            match result {
-                                Err(e) => {
-                                    log::error!("UNEXPECTED ERROR: {:?}", e);
-                                    return Err(e);
-                                }
-                                Ok(Err(e)) => {
-                                    log::error!("UNEXPECTED ERROR: {:?}", e);
-                                    return Err(io::ErrorKind::InvalidInput.into());
-                                }
-                                Ok(Ok(client_request)) => match query_engine.execute(client_request) {
-                                    Ok(()) => {}
-                                    Err(_) => {
-                                        break Ok(());
-                                    }
-                                },
-                            }
-                        }
+                        worker.process(&mut connection, db);
+
+                        Ok(())
                     });
                 }
             }

@@ -20,7 +20,7 @@ fn select() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Select(SelectStatement {
+        Ok(Request::Statement(Statement::Query(Query::Select(SelectQuery {
             select_items: vec![SelectItem::Wildcard],
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
@@ -39,7 +39,7 @@ fn update() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Update(UpdateStatement {
+        Ok(Request::Statement(Statement::Query(Query::Update(UpdateQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             assignments: vec![Assignment {
@@ -61,7 +61,7 @@ fn delete() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Delete(DeleteStatement {
+        Ok(Request::Statement(Statement::Query(Query::Delete(DeleteQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             where_clause: Some(Expr::BinaryOp {

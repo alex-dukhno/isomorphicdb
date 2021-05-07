@@ -25,7 +25,7 @@ fn small_int(value: i16) -> Expr {
 }
 
 fn inner_insert(schema_name: &str, table_name: &str, multiple_values: Vec<Vec<Expr>>, columns: Vec<&str>) -> Query {
-    Query::Insert(InsertStatement {
+    Query::Insert(InsertQuery {
         schema_name: schema_name.to_owned(),
         table_name: table_name.to_owned(),
         columns: columns.into_iter().map(ToOwned::to_owned).collect(),

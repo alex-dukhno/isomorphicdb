@@ -18,10 +18,10 @@ use super::*;
 fn int_table(with_schema: TransactionManager) -> TransactionManager {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name(col smallint);",
-        Ok(QueryEvent::TableCreated),
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 
@@ -32,10 +32,10 @@ fn int_table(with_schema: TransactionManager) -> TransactionManager {
 fn multiple_ints_table(with_schema: TransactionManager) -> TransactionManager {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name(column_si smallint, column_i integer, column_bi bigint);",
-        Ok(QueryEvent::TableCreated),
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 
@@ -46,10 +46,10 @@ fn multiple_ints_table(with_schema: TransactionManager) -> TransactionManager {
 fn str_table(with_schema: TransactionManager) -> TransactionManager {
     let txn = with_schema.start_transaction();
 
-    assert_definition(
+    assert_statement(
         &txn,
         "create table schema_name.table_name(col varchar(5));",
-        Ok(QueryEvent::TableCreated),
+        vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 
@@ -65,10 +65,13 @@ mod insert {
     fn out_of_range(int_table: TransactionManager) {
         let txn = int_table.start_transaction();
 
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values (32768);",
-            Err(QueryError::out_of_range_2("smallint", "col".to_string(), 1)),
+            vec![
+                QueryError::out_of_range_2("smallint", "col".to_string(), 1).into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -77,10 +80,13 @@ mod insert {
     fn type_mismatch(int_table: TransactionManager) {
         let txn = int_table.start_transaction();
 
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values ('str');",
-            Err(QueryError::invalid_text_representation_2(SqlType::small_int(), &"str")),
+            vec![
+                QueryError::invalid_text_representation_2(SqlType::small_int(), &"str").into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -89,16 +95,16 @@ mod insert {
     fn multiple_columns_multiple_row_violation(multiple_ints_table: TransactionManager) {
         let txn = multiple_ints_table.start_transaction();
 
-        // assert_query(
+        // assert_statement(
         //     &txn,
         //     "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);",
         //     Err(QueryError::out_of_range(SMALLINT, "column_si", 1)),
         //     Err(QueryError::out_of_range(INT, "column_i", 1))
         // );
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);",
-            Err(QueryError::out_of_range_2(SqlType::small_int(), "column_si", 1)),
+            vec![QueryError::out_of_range_2(SqlType::small_int(), "column_si", 1).into(), OutboundMessage::ReadyForQuery],
         );
         txn.commit();
     }
@@ -107,10 +113,10 @@ mod insert {
     fn violation_in_the_second_row(multiple_ints_table: TransactionManager) {
         let txn = multiple_ints_table.start_transaction();
 
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775808);",
-            Err(QueryError::out_of_range_2(SqlType::integer(), "column_i".to_owned(), 2))
+            vec![QueryError::out_of_range_2(SqlType::integer(), "column_i".to_owned(), 2).into(), OutboundMessage::ReadyForQuery]
         );
         txn.commit();
     }
@@ -120,10 +126,13 @@ mod insert {
     fn value_too_long(str_table: TransactionManager) {
         let txn = str_table.start_transaction();
 
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values ('123457890');",
-            Err(QueryError::string_length_mismatch(VARCHAR, 5, "col".to_string(), 1)),
+            vec![
+                QueryError::string_length_mismatch(VARCHAR, 5, "col".to_string(), 1).into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -138,15 +147,18 @@ mod update {
     fn out_of_range(int_table: TransactionManager) {
         let txn = int_table.start_transaction();
 
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values (32767);",
-            Ok(QueryExecutionResult::Inserted(1)),
+            vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
         );
-        assert_query(
+        assert_statement(
             &txn,
             "update schema_name.table_name set col = 32768;",
-            Err(QueryError::out_of_range_2(SqlType::small_int(), "col".to_string(), 1)),
+            vec![
+                QueryError::out_of_range_2(SqlType::small_int(), "col".to_string(), 1).into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -155,15 +167,18 @@ mod update {
     fn type_mismatch(int_table: TransactionManager) {
         let txn = int_table.start_transaction();
 
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values (32767);",
-            Ok(QueryExecutionResult::Inserted(1)),
+            vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
         );
-        assert_query(
+        assert_statement(
             &txn,
             "update schema_name.table_name set col = 'str';",
-            Err(QueryError::invalid_text_representation_2(SqlType::small_int(), &"str")),
+            vec![
+                QueryError::invalid_text_representation_2(SqlType::small_int(), &"str").into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -173,15 +188,18 @@ mod update {
     fn value_too_long(str_table: TransactionManager) {
         let txn = str_table.start_transaction();
 
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values ('str');",
-            Ok(QueryExecutionResult::Inserted(1)),
+            vec![OutboundMessage::RecordsInserted(1), OutboundMessage::ReadyForQuery],
         );
-        assert_query(
+        assert_statement(
             &txn,
             "update schema_name.table_name set col = '123457890';",
-            Err(QueryError::string_length_mismatch(VARCHAR, 5, "col".to_string(), 1)),
+            vec![
+                QueryError::string_length_mismatch(VARCHAR, 5, "col".to_string(), 1).into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -190,12 +208,12 @@ mod update {
     fn multiple_columns_violation(multiple_ints_table: TransactionManager) {
         let txn = multiple_ints_table.start_transaction();
 
-        assert_query(
+        assert_statement(
             &txn,
             "insert into schema_name.table_name values (100, 100, 100), (100, 100, 100);",
-            Ok(QueryExecutionResult::Inserted(2)),
+            vec![OutboundMessage::RecordsInserted(2), OutboundMessage::ReadyForQuery],
         );
-        // assert_query(
+        // assert_statement(
         //      &txn,
         //      "update schema_name.table_name set column_si = -32769, column_i= -2147483649, column_bi=100;",
         //      vec![
@@ -203,10 +221,13 @@ mod update {
         //          Err(QueryError::out_of_range(INT, "column_i".to_owned(), 1)),
         //      ]
         // );
-        assert_query(
+        assert_statement(
             &txn,
             "update schema_name.table_name set column_si = -32769, column_i= -2147483649, column_bi=100;",
-            Err(QueryError::out_of_range_2("smallint", "column_si".to_owned(), 1)),
+            vec![
+                QueryError::out_of_range_2(SqlType::small_int(), "column_si".to_string(), 1).into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
     }
 }

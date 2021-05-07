@@ -12,118 +12,47 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{transaction_manager::TransactionManager, txn_context::TransactionContext, QueryPlanCache};
-use data_manipulation::QueryExecutionResult;
+use crate::{
+    query_executor::QueryExecutor,
+    transaction_manager::{TransactionContext, TransactionManager},
+    QueryPlanCache,
+};
 use data_repr::scalar::ScalarValue;
 use postgre_sql::{
-    query_ast::{Extended, Request, Statement, Transaction},
+    query_ast::{Request, Statement, Transaction},
     query_parser::QueryParser,
+    query_response::{QueryError, QueryEvent},
     wire_protocol::{
-        payload::{Inbound, Outbound},
+        payload::{InboundMessage, OutboundMessage, Value, BIGINT, BOOL, CHAR, INT, SMALLINT, VARCHAR},
         WireConnection,
     },
 };
 use storage::Database;
-use types::{SqlType, SqlTypeFamily};
+use types::SqlTypeFamily;
 
-struct QueryExecutor;
-
-impl QueryExecutor {
-    fn execute(
-        &self,
-        statement: Statement,
-        txn: &TransactionContext,
-        query_plan_cache: &mut QueryPlanCache,
-    ) -> Vec<Outbound> {
-        let mut responses = vec![];
-        match statement {
-            Statement::Definition(definition) => match txn.apply_schema_change(definition) {
-                Ok(success) => responses.push(success.into()),
-                Err(failure) => responses.push(failure.into()),
-            },
-            Statement::Extended(extended) => match extended {
-                Extended::Prepare {
-                    query,
-                    name,
-                    param_types,
-                } => {
-                    let params: Vec<SqlTypeFamily> =
-                        param_types.into_iter().map(|dt| SqlType::from(dt).family()).collect();
-                    let typed_query = txn.process(query.clone(), params.clone()).unwrap();
-                    let query_plan = txn.plan(typed_query);
-                    query_plan_cache.allocate(name, query_plan, query, params);
-                    responses.push(Outbound::StatementPrepared);
-                }
-                Extended::Execute { name, param_values } => {
-                    match query_plan_cache.lookup(&name) {
-                        None => unimplemented!(),
-                        // TODO: workaround situate that QueryPlan is not clone ¯\_(ツ)_/¯
-                        Some((query, params)) => {
-                            let typed_query = txn.process(query.clone(), params.clone()).unwrap();
-                            let query_plan = txn.plan(typed_query);
-                            match query_plan.execute(param_values.into_iter().map(ScalarValue::from).collect()) {
-                                Ok(QueryExecutionResult::Inserted(inserted)) => {
-                                    responses.push(Outbound::RecordsInserted(inserted));
-                                }
-                                Ok(_) => {}
-                                Err(_) => unimplemented!(),
-                            }
-                        }
-                    }
-                }
-                Extended::Deallocate { name } => match query_plan_cache.deallocate(&name) {
-                    None => {}
-                    Some(_) => {}
-                },
-            },
-            Statement::Query(query) => {
-                let typed_query = txn.process(query, vec![]).unwrap();
-                let query_plan = txn.plan(typed_query);
-                match query_plan.execute(vec![]) {
-                    Ok(QueryExecutionResult::Selected((desc, data))) => {
-                        responses.push(Outbound::RowDescription(desc));
-                        let selected = data.len();
-                        for datum in data {
-                            responses.push(Outbound::DataRow(datum.into_iter().map(|v| v.as_text()).collect()));
-                        }
-                        responses.push(Outbound::RecordsSelected(selected));
-                    }
-                    other => {
-                        unimplemented!("branch {:?} is not implemented", other)
-                    }
-                }
-            }
-        }
-        responses.push(Outbound::ReadyForQuery);
-        responses
-    }
-}
-
-#[allow(dead_code)]
 pub struct Worker;
 
 impl Worker {
-    #[allow(dead_code)]
-    fn process<C: WireConnection>(&self, connection: &mut C, db_name: &str) {
+    pub fn process<C: WireConnection>(&self, connection: &mut C, database: Database) {
         let mut query_plan_cache = QueryPlanCache::default();
         let query_parser = QueryParser;
 
-        let database = Database::new(db_name);
-        let query_engine = TransactionManager::new(database);
+        let transaction_manager = TransactionManager::new(database);
 
+        let executor = QueryExecutor;
         let mut txn_state: Option<TransactionContext> = None;
         loop {
             let inbound_request = connection.receive();
             match inbound_request {
                 Ok(Ok(inbound)) => match inbound {
-                    Inbound::Query { sql } => match query_parser.parse(&sql) {
+                    InboundMessage::Query { sql } => match query_parser.parse(&sql) {
                         Ok(request) => match request {
                             Request::Transaction(transaction) => {
                                 match transaction {
                                     Transaction::Begin => {
                                         debug_assert!(txn_state.is_none(), "transaction state should be implicit");
-                                        txn_state = Some(query_engine.start_transaction());
-                                        connection.send(Outbound::TransactionBegin).unwrap();
+                                        txn_state = Some(transaction_manager.start_transaction());
+                                        connection.send(OutboundMessage::TransactionBegin).unwrap();
                                     }
                                     Transaction::Commit => {
                                         debug_assert!(txn_state.is_some(), "transaction state should be in progress");
@@ -131,22 +60,24 @@ impl Worker {
                                             None => unimplemented!(),
                                             Some(txn) => {
                                                 txn.commit();
-                                                connection.send(Outbound::TransactionCommit).unwrap();
+                                                connection.send(OutboundMessage::TransactionCommit).unwrap();
                                                 txn_state = None;
                                             }
                                         }
                                     }
                                 }
-                                connection.send(Outbound::ReadyForQuery).unwrap();
+                                connection.send(OutboundMessage::ReadyForQuery).unwrap();
                             }
-                            Request::Config(_) => unimplemented!(),
+                            Request::Config(_) => {
+                                connection.send(OutboundMessage::VariableSet).unwrap();
+                                connection.send(OutboundMessage::ReadyForQuery).unwrap();
+                            }
                             Request::Statement(statement) => {
                                 let (txn, finish_txn) = match txn_state.take() {
-                                    None => (query_engine.start_transaction(), true),
+                                    None => (transaction_manager.start_transaction(), true),
                                     Some(txn) => (txn, false),
                                 };
-                                let test = QueryExecutor;
-                                for outbound in test.execute(statement, &txn, &mut query_plan_cache) {
+                                for outbound in executor.execute_statement(statement, &txn, &mut query_plan_cache) {
                                     connection.send(outbound).unwrap();
                                 }
                                 if finish_txn {
@@ -156,8 +87,183 @@ impl Worker {
                                 }
                             }
                         },
-                        Err(_) => unimplemented!(),
+                        Err(parse_error) => {
+                            let query_error: QueryError = parse_error.into();
+                            connection.send(query_error.into()).unwrap();
+                            connection.send(OutboundMessage::ReadyForQuery).unwrap();
+                        }
                     },
+                    InboundMessage::Parse {
+                        statement_name,
+                        sql,
+                        param_types,
+                    } => {
+                        let (txn, finish_txn) = match txn_state.take() {
+                            None => (transaction_manager.start_transaction(), true),
+                            Some(txn) => (txn, false),
+                        };
+                        match query_plan_cache.find_described(&statement_name) {
+                            Some((_, saved_sql, _)) if saved_sql == sql => {
+                                connection.send(QueryEvent::ParseComplete.into()).unwrap();
+                            }
+                            _ => match query_parser.parse(&sql) {
+                                Ok(Request::Statement(statement)) => match statement {
+                                    Statement::Query(query) => {
+                                        query_plan_cache.save_parsed(statement_name, sql, query, param_types);
+                                        connection.send(QueryEvent::ParseComplete.into()).unwrap();
+                                    }
+                                    other => {
+                                        connection
+                                            .send(QueryError::syntax_error(format!("{:?}", other)).into())
+                                            .unwrap();
+                                    }
+                                },
+                                Ok(_) => unimplemented!(),
+                                Err(parser_error) => {
+                                    connection.send(QueryError::syntax_error(parser_error).into()).unwrap();
+                                }
+                            },
+                        }
+                        if finish_txn {
+                            txn.commit();
+                        } else {
+                            txn_state = Some(txn);
+                        }
+                    }
+                    InboundMessage::DescribeStatement { name } => {
+                        let (txn, finish_txn) = match txn_state.take() {
+                            None => (transaction_manager.start_transaction(), true),
+                            Some(txn) => (txn, false),
+                        };
+                        match query_plan_cache.find_parsed(&name) {
+                            None => connection
+                                .send(QueryError::prepared_statement_does_not_exist(name).into())
+                                .unwrap(),
+                            Some((query, sql, _)) => {
+                                let (untyped_query, param_types, responses) =
+                                    executor.describe_statement(query.clone(), &txn);
+                                for response in responses {
+                                    connection.send(response).unwrap();
+                                }
+                                query_plan_cache.save_described(name, untyped_query, sql, param_types);
+                            }
+                        }
+                        if finish_txn {
+                            txn.commit();
+                        } else {
+                            txn_state = Some(txn);
+                        }
+                    }
+                    InboundMessage::Bind {
+                        portal_name,
+                        statement_name,
+                        query_param_formats,
+                        query_params,
+                        result_value_formats,
+                    } => {
+                        let (txn, finish_txn) = match txn_state.take() {
+                            None => (transaction_manager.start_transaction(), true),
+                            Some(txn) => (txn, false),
+                        };
+                        match query_plan_cache.find_described(&statement_name) {
+                            Some((untyped_query, _, param_types)) => {
+                                let (untyped_query, param_types) = (untyped_query.clone(), param_types.to_vec());
+
+                                let mut arguments: Vec<ScalarValue> = vec![];
+                                debug_assert!(
+                                    query_params.len() == param_types.len()
+                                        && query_params.len() == query_param_formats.len(),
+                                    "encoded parameter values, their types and formats have to have same length"
+                                );
+                                for i in 0..query_params.len() {
+                                    let raw_param = &query_params[i];
+                                    let typ = param_types[i];
+                                    let format = query_param_formats[i];
+                                    match raw_param {
+                                        None => arguments.push(ScalarValue::Null),
+                                        Some(bytes) => {
+                                            log::debug!("PG Type {:?}", typ);
+                                            match decode(typ, format, &bytes) {
+                                                Ok(param) => arguments.push(From::from(param)),
+                                                Err(_) => unimplemented!(),
+                                            }
+                                        }
+                                    }
+                                }
+                                let portal = crate::Portal {
+                                    untyped_query,
+                                    result_value_formats: result_value_formats.clone(),
+                                    arguments,
+                                    param_types: param_types.iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
+                                };
+                                query_plan_cache.bind_portal(statement_name, portal_name, portal);
+                                connection.send(OutboundMessage::BindComplete).unwrap();
+                            }
+                            None => connection
+                                .send(QueryError::prepared_statement_does_not_exist(&statement_name).into())
+                                .unwrap(),
+                        }
+                        if finish_txn {
+                            txn.commit();
+                        } else {
+                            txn_state = Some(txn);
+                        }
+                    }
+                    InboundMessage::DescribePortal { name } => {
+                        let (txn, finish_txn) = match txn_state.take() {
+                            None => (transaction_manager.start_transaction(), true),
+                            Some(txn) => (txn, false),
+                        };
+                        match query_plan_cache.find_described(&name) {
+                            None => connection
+                                .send(QueryError::prepared_statement_does_not_exist(&name).into())
+                                .unwrap(),
+                            Some(_) => {
+                                connection.send(OutboundMessage::StatementDescription(vec![])).unwrap();
+                            }
+                        }
+                        if finish_txn {
+                            txn.commit();
+                        } else {
+                            txn_state = Some(txn);
+                        }
+                    }
+                    InboundMessage::Execute {
+                        portal_name,
+                        max_rows: _max_rows,
+                    } => {
+                        let (txn, finish_txn) = match txn_state.take() {
+                            None => (transaction_manager.start_transaction(), true),
+                            Some(txn) => (txn, false),
+                        };
+                        let responses = match query_plan_cache.find_portal(&portal_name) {
+                            None => vec![QueryError::prepared_statement_does_not_exist(portal_name).into()],
+                            Some(crate::Portal {
+                                untyped_query,
+                                result_value_formats: _result_value_formats,
+                                arguments,
+                                param_types,
+                            }) => executor.execute_portal(
+                                untyped_query,
+                                param_types,
+                                arguments,
+                                &txn,
+                                &mut query_plan_cache,
+                            ),
+                        };
+                        for response in responses {
+                            connection.send(response).unwrap();
+                        }
+                        if finish_txn {
+                            txn.commit();
+                        } else {
+                            txn_state = Some(txn);
+                        }
+                    }
+                    InboundMessage::Sync => {
+                        connection.send(OutboundMessage::ReadyForQuery).unwrap();
+                    }
+                    InboundMessage::Terminate => break,
                     other => unimplemented!("other inbound request {:?} is not handled", other),
                 },
                 _ => break,
@@ -166,199 +272,81 @@ impl Worker {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::io;
-
-    use postgre_sql::wire_protocol::{
-        payload::{Outbound, SMALLINT},
-        WireError, WireResult,
-    };
-
-    use super::*;
-
-    struct MockConnection {
-        inbound: Vec<Inbound>,
-        outbound: Vec<Outbound>,
-    }
-
-    impl MockConnection {
-        fn new(inbound: Vec<Inbound>) -> MockConnection {
-            MockConnection {
-                inbound: inbound.into_iter().rev().collect(),
-                outbound: vec![],
-            }
-        }
-    }
-
-    impl WireConnection for MockConnection {
-        fn receive(&mut self) -> io::Result<WireResult> {
-            match self.inbound.pop() {
-                None => Ok(Err(WireError)),
-                Some(inbound) => Ok(Ok(inbound)),
-            }
-        }
-
-        fn send(&mut self, outbound: Outbound) -> io::Result<()> {
-            self.outbound.push(outbound);
-            Ok(())
-        }
-    }
-
-    #[test]
-    fn single_create_schema_request() {
-        let mut connection = MockConnection::new(vec![Inbound::Query {
-            sql: "create schema schema_name;".to_owned(),
-        }]);
-
-        let node_engine = Worker;
-
-        node_engine.process(&mut connection, "IN_MEMORY");
-
-        assert_eq!(
-            connection.outbound,
-            vec![Outbound::SchemaCreated, Outbound::ReadyForQuery]
-        );
-    }
-
-    #[test]
-    fn transaction_per_query() {
-        let mut connection = MockConnection::new(vec![
-            Inbound::Query {
-                sql: "create schema schema_name;".to_owned(),
-            },
-            Inbound::Query {
-                sql: "create table schema_name.table_name (col1 smallint);".to_owned(),
-            },
-        ]);
-
-        let node_engine = Worker;
-
-        node_engine.process(&mut connection, "IN_MEMORY");
-
-        assert_eq!(
-            connection.outbound,
-            vec![
-                Outbound::SchemaCreated,
-                Outbound::ReadyForQuery,
-                Outbound::TableCreated,
-                Outbound::ReadyForQuery
-            ]
-        );
-    }
-
-    #[test]
-    fn multiple_ddl_in_single_transaction() {
-        let mut connection = MockConnection::new(vec![
-            Inbound::Query {
-                sql: "begin".to_owned(),
-            },
-            Inbound::Query {
-                sql: "create schema schema_name;".to_owned(),
-            },
-            Inbound::Query {
-                sql: "create table schema_name.table_name (col1 smallint);".to_owned(),
-            },
-            Inbound::Query {
-                sql: "commit".to_owned(),
-            },
-        ]);
-
-        let node_engine = Worker;
-
-        node_engine.process(&mut connection, "IN_MEMORY");
-
-        assert_eq!(
-            connection.outbound,
-            vec![
-                Outbound::TransactionBegin,
-                Outbound::ReadyForQuery,
-                Outbound::SchemaCreated,
-                Outbound::ReadyForQuery,
-                Outbound::TableCreated,
-                Outbound::ReadyForQuery,
-                Outbound::TransactionCommit,
-                Outbound::ReadyForQuery,
-            ]
-        );
-    }
-
-    #[test]
-    fn prepare_and_execute_multiple_times_in_single_transaction() {
-        let mut connection = MockConnection::new(vec![
-            Inbound::Query {
-                sql: "begin".to_owned(),
-            },
-            Inbound::Query {
-                sql: "create schema schema_name;".to_owned(),
-            },
-            Inbound::Query {
-                sql: "create table schema_name.table_name (col1 smallint);".to_owned(),
-            },
-            Inbound::Query {
-                sql: "commit".to_owned(),
-            },
-            Inbound::Query {
-                sql: "begin".to_owned(),
-            },
-            Inbound::Query {
-                sql: "prepare plan (smallint) as insert into schema_name.table_name values ($1)".to_owned(),
-            },
-            Inbound::Query {
-                sql: "execute plan (1)".to_owned(),
-            },
-            Inbound::Query {
-                sql: "commit".to_owned(),
-            },
-            Inbound::Query {
-                sql: "begin".to_owned(),
-            },
-            Inbound::Query {
-                sql: "execute plan (1)".to_owned(),
-            },
-            Inbound::Query {
-                sql: "select * from schema_name.table_name".to_owned(),
-            },
-            Inbound::Query {
-                sql: "commit".to_owned(),
-            },
-        ]);
-
-        let node_engine = Worker;
-
-        node_engine.process(&mut connection, "IN_MEMORY");
-
-        assert_eq!(
-            connection.outbound,
-            vec![
-                Outbound::TransactionBegin,
-                Outbound::ReadyForQuery,
-                Outbound::SchemaCreated,
-                Outbound::ReadyForQuery,
-                Outbound::TableCreated,
-                Outbound::ReadyForQuery,
-                Outbound::TransactionCommit,
-                Outbound::ReadyForQuery,
-                Outbound::TransactionBegin,
-                Outbound::ReadyForQuery,
-                Outbound::StatementPrepared,
-                Outbound::ReadyForQuery,
-                Outbound::RecordsInserted(1),
-                Outbound::ReadyForQuery,
-                Outbound::TransactionCommit,
-                Outbound::ReadyForQuery,
-                Outbound::TransactionBegin,
-                Outbound::ReadyForQuery,
-                Outbound::RecordsInserted(1),
-                Outbound::ReadyForQuery,
-                Outbound::RowDescription(vec![("col1".to_owned(), SMALLINT)]),
-                Outbound::DataRow(vec!["1".to_owned()]),
-                Outbound::DataRow(vec!["1".to_owned()]),
-                Outbound::RecordsSelected(2),
-                Outbound::ReadyForQuery,
-                Outbound::TransactionCommit,
-                Outbound::ReadyForQuery,
-            ]
-        );
+pub fn decode(ty: u32, format: i16, raw: &[u8]) -> Result<Value, ()> {
+    match format {
+        1 => decode_binary(ty, raw),
+        0 => decode_text(ty, raw),
+        _ => unimplemented!(),
     }
 }
+
+fn decode_binary(ty: u32, raw: &[u8]) -> Result<Value, ()> {
+    match ty {
+        BOOL => {
+            if raw.is_empty() {
+                Err(())
+            } else {
+                Ok(Value::Bool(raw[0] != 0))
+            }
+        }
+        CHAR | VARCHAR => std::str::from_utf8(raw)
+            .map(|s| Value::String(s.into()))
+            .map_err(|_cause| ()),
+        SMALLINT => {
+            if raw.len() < 4 {
+                Err(())
+            } else {
+                Ok(Value::Int16(i32::from_be_bytes([raw[0], raw[1], raw[2], raw[3]]) as i16))
+            }
+        }
+        INT => {
+            if raw.len() < 4 {
+                Err(())
+            } else {
+                Ok(Value::Int32(i32::from_be_bytes([raw[0], raw[1], raw[2], raw[3]])))
+            }
+        }
+        BIGINT => {
+            if raw.len() < 8 {
+                Err(())
+            } else {
+                Ok(Value::Int64(i64::from_be_bytes([
+                    raw[0], raw[1], raw[2], raw[3], raw[4], raw[5], raw[6], raw[7],
+                ])))
+            }
+        }
+        _ => unimplemented!(),
+    }
+}
+
+const BOOL_TRUE: &[&str] = &["t", "tr", "tru", "true", "y", "ye", "yes", "on", "1"];
+const BOOL_FALSE: &[&str] = &["f", "fa", "fal", "fals", "false", "n", "no", "of", "off", "0"];
+
+fn decode_text(ty: u32, raw: &[u8]) -> Result<Value, ()> {
+    let s = match std::str::from_utf8(raw) {
+        Ok(s) => s,
+        Err(_cause) => return Err(()),
+    };
+
+    match ty {
+        BOOL => {
+            let v = s.trim().to_lowercase();
+            if BOOL_TRUE.contains(&v.as_str()) {
+                Ok(Value::Bool(true))
+            } else if BOOL_FALSE.contains(&v.as_str()) {
+                Ok(Value::Bool(false))
+            } else {
+                Err(())
+            }
+        }
+        CHAR => Ok(Value::String(s.into())),
+        VARCHAR => Ok(Value::String(s.into())),
+        SMALLINT => s.trim().parse().map(Value::Int16).map_err(|_cause| ()),
+        INT => s.trim().parse().map(Value::Int32).map_err(|_cause| ()),
+        BIGINT => s.trim().parse().map(Value::Int64).map_err(|_cause| ()),
+        _ => unimplemented!(),
+    }
+}
+
+#[cfg(test)]
+mod tests;

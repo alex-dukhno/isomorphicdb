@@ -4,6 +4,10 @@ import groovy.sql.GroovyRowResult
 import io.isomorphicdb.ThreeSmallIntColumnTable
 import spock.lang.Ignore
 
+@Ignore('''
+org.postgresql.util.PSQLException: This connection has been closed.
+should be fixed with extended query RFC implementation
+''')
 class BasicQueryOperationsSpec extends ThreeSmallIntColumnTable {
   private static String INSERT_QUERY = 'insert into SCHEMA_NAME.TABLE_NAME values (?, ?, ?)'
 

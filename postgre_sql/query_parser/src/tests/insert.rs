@@ -20,7 +20,7 @@ fn insert_int() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
@@ -35,7 +35,7 @@ fn insert_string() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
@@ -80,7 +80,7 @@ mod operators {
 
         assert_eq!(
             statements,
-            Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+            Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],
@@ -111,7 +111,7 @@ mod operators {
 
         assert_eq!(
             statements,
-            Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+            Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],
@@ -133,7 +133,7 @@ mod operators {
 
         assert_eq!(
             statements,
-            Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+            Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
                 columns: vec![],
@@ -152,7 +152,7 @@ fn insert_with_columns() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
@@ -167,7 +167,7 @@ fn insert_params() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
@@ -182,7 +182,7 @@ fn insert_column() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec!["col1".to_owned()],
@@ -200,7 +200,7 @@ fn insert_int_max() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],
@@ -222,7 +222,7 @@ fn cast() {
 
     assert_eq!(
         statements,
-        Ok(Request::Statement(Statement::Query(Query::Insert(InsertStatement {
+        Ok(Request::Statement(Statement::Query(Query::Insert(InsertQuery {
             schema_name: "schema_name".to_owned(),
             table_name: "table_name".to_owned(),
             columns: vec![],

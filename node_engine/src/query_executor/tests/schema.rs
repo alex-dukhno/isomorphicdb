@@ -20,7 +20,11 @@ fn create_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
+    assert_statement(
+        &txn,
+        "create schema schema_name;",
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
+    );
     txn.commit();
 }
 
@@ -30,11 +34,18 @@ fn create_same_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
-    assert_definition(
+    assert_statement(
         &txn,
         "create schema schema_name;",
-        Err(QueryError::schema_already_exists("schema_name")),
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
+    );
+    assert_statement(
+        &txn,
+        "create schema schema_name;",
+        vec![
+            QueryError::schema_already_exists("schema_name").into(),
+            OutboundMessage::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -45,8 +56,16 @@ fn drop_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_definition(&txn, "create schema schema_name;", Ok(QueryEvent::SchemaCreated));
-    assert_definition(&txn, "drop schema schema_name;", Ok(QueryEvent::SchemaDropped));
+    assert_statement(
+        &txn,
+        "create schema schema_name;",
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
+    );
+    assert_statement(
+        &txn,
+        "drop schema schema_name;",
+        vec![OutboundMessage::SchemaDropped, OutboundMessage::ReadyForQuery],
+    );
     txn.commit();
 }
 
@@ -56,10 +75,13 @@ fn drop_non_existent_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_definition(
+    assert_statement(
         &txn,
         "drop schema non_existent;",
-        Err(QueryError::schema_does_not_exist("non_existent")),
+        vec![
+            QueryError::schema_does_not_exist("non_existent").into(),
+            OutboundMessage::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -70,10 +92,10 @@ fn drop_if_exists_non_existent_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_definition(
+    assert_statement(
         &txn,
         "drop schema if exists non_existent;",
-        Ok(QueryEvent::SchemaDropped),
+        vec![OutboundMessage::SchemaDropped, OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -84,13 +106,21 @@ fn drop_if_exists_existent_and_non_existent_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_definition(&txn, "create schema existent_schema;", Ok(QueryEvent::SchemaCreated));
-    assert_definition(
+    assert_statement(
+        &txn,
+        "create schema existent_schema;",
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
+    );
+    assert_statement(
         &txn,
         "drop schema if exists non_existent, existent_schema;",
-        Ok(QueryEvent::SchemaDropped),
+        vec![OutboundMessage::SchemaDropped, OutboundMessage::ReadyForQuery],
     );
-    assert_definition(&txn, "create schema existent_schema;", Ok(QueryEvent::SchemaCreated));
+    assert_statement(
+        &txn,
+        "create schema existent_schema;",
+        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery],
+    );
     txn.commit();
 }
 
@@ -100,10 +130,13 @@ fn select_from_nonexistent_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_query(
+    assert_statement(
         &txn,
         "select * from non_existent.some_table;",
-        Err(QueryError::schema_does_not_exist("non_existent")),
+        vec![
+            QueryError::schema_does_not_exist("non_existent").into(),
+            OutboundMessage::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -114,10 +147,13 @@ fn select_named_columns_from_nonexistent_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_query(
+    assert_statement(
         &txn,
         "select column_1 from schema_name.table_name;",
-        Err(QueryError::schema_does_not_exist("schema_name")),
+        vec![
+            QueryError::schema_does_not_exist("schema_name").into(),
+            OutboundMessage::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -128,10 +164,13 @@ fn insert_into_table_in_nonexistent_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_query(
+    assert_statement(
         &txn,
         "insert into schema_name.table_name values (123);",
-        Err(QueryError::schema_does_not_exist("schema_name")),
+        vec![
+            QueryError::schema_does_not_exist("schema_name").into(),
+            OutboundMessage::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -142,10 +181,13 @@ fn update_records_in_table_from_non_existent_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_query(
+    assert_statement(
         &txn,
         "update schema_name.table_name set column_test=789;",
-        Err(QueryError::schema_does_not_exist("schema_name")),
+        vec![
+            QueryError::schema_does_not_exist("schema_name").into(),
+            OutboundMessage::ReadyForQuery,
+        ],
     );
     txn.commit();
 }
@@ -156,10 +198,13 @@ fn delete_from_table_in_nonexistent_schema() {
     let query_engine = TransactionManager::new(database);
 
     let txn = query_engine.start_transaction();
-    assert_query(
+    assert_statement(
         &txn,
         "delete from schema_name.table_name;",
-        Err(QueryError::schema_does_not_exist("schema_name")),
+        vec![
+            QueryError::schema_does_not_exist("schema_name").into(),
+            OutboundMessage::ReadyForQuery,
+        ],
     );
     txn.commit();
 }

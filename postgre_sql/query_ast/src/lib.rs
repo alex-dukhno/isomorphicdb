@@ -90,14 +90,14 @@ pub enum ObjectType {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Query {
-    Insert(InsertStatement),
-    Update(UpdateStatement),
-    Delete(DeleteStatement),
-    Select(SelectStatement),
+    Insert(InsertQuery),
+    Update(UpdateQuery),
+    Delete(DeleteQuery),
+    Select(SelectQuery),
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct InsertStatement {
+pub struct InsertQuery {
     pub schema_name: String,
     pub table_name: String,
     pub columns: Vec<String>,
@@ -105,7 +105,7 @@ pub struct InsertStatement {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct UpdateStatement {
+pub struct UpdateQuery {
     pub schema_name: String,
     pub table_name: String,
     pub assignments: Vec<Assignment>,
@@ -119,14 +119,14 @@ pub struct Assignment {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct DeleteStatement {
+pub struct DeleteQuery {
     pub schema_name: String,
     pub table_name: String,
     pub where_clause: Option<Expr>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct SelectStatement {
+pub struct SelectQuery {
     pub select_items: Vec<SelectItem>,
     pub schema_name: String,
     pub table_name: String,
