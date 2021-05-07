@@ -11,14 +11,12 @@ defaults:
 
 jobs:
   impossibl-pgjdbc-ng-driver:
-    container:
-      image: ghcr.io/alex-dukhno/isomorphicdb:latest
-      ports:
-        - 5432:5432
-      options:
-        --network host
     runs-on: ubuntu-latest
     steps:
+      - name: start IsomorphicDB docker container
+        run: |
+          docker run -it -d --network host -p 5432:5432 ghcr.io/alex-dukhno/isomorphicdb
+          echo 'CONTAINER_ID='$(docker ps -q) >> $GITHUB_ENV
       - name: checkout impossibl/pgjdbc-ng
         uses: actions/checkout@v2
         with:
@@ -29,3 +27,5 @@ jobs:
           java-version: 8
       - name: run pgjdbc-ng test suite
         run: ./gradlew -PnoDocker=true test
+      - name: stop IsomorphicDB docker container
+        run: docker stop ${{ env.CONTAINER_ID }}
