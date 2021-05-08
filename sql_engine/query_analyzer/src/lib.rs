@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
-use catalog::{CatalogHandler, CatalogHandlerOld};
+use catalog::CatalogHandler;
 use data_manipulation_untyped_queries::{
     UntypedDeleteQuery, UntypedInsertQuery, UntypedQuery, UntypedSelectQuery, UntypedUpdateQuery,
 };
@@ -24,7 +24,7 @@ use query_ast::{
 };
 use query_response::QueryError;
 use std::collections::HashMap;
-use storage::{Transaction, TransactionalDatabase};
+use storage::Transaction;
 
 mod dynamic_tree_builder;
 mod static_tree_builder;
@@ -44,198 +44,7 @@ impl<'a> From<Transaction<'a>> for QueryAnalyzer<'a> {
 impl<'a> QueryAnalyzer<'a> {
     pub fn analyze(&self, query: Query) -> Result<UntypedQuery, AnalysisError> {
         match query {
-            Query::Insert(InsertQuery {
-                schema_name,
-                table_name,
-                source,
-                columns,
-            }) => {
-                let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.catalog.table_definition(full_table_name.clone()) {
-                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                    Some(Some(table_info)) => {
-                        let table_columns = table_info.column_names();
-                        let column_names = if columns.is_empty() {
-                            table_info.column_names().into_iter()
-                        } else {
-                            let mut column_names = vec![];
-                            for column in columns {
-                                if !table_info.has_column(&column) {
-                                    return Err(AnalysisError::column_not_found(&column));
-                                }
-                                column_names.push(column);
-                            }
-                            column_names.into_iter()
-                        };
-                        let column_map = column_names
-                            .enumerate()
-                            .map(|(index, name)| (name, index))
-                            .collect::<HashMap<String, usize>>();
-
-                        let values = match source {
-                            InsertSource::Values(Values(insert_rows)) => {
-                                let mut values = vec![];
-                                log::debug!("column map {:?}", column_map);
-                                for insert_row in insert_rows {
-                                    log::debug!("building static tree for {:?} row", insert_row);
-                                    let mut row = vec![];
-                                    for table_column in &table_columns {
-                                        let value = match column_map.get(table_column) {
-                                            Some(index) if index < &insert_row.len() => {
-                                                Some(StaticTreeBuilder::build_from(insert_row[*index].clone())?)
-                                            }
-                                            _ => None,
-                                        };
-                                        row.push(value);
-                                    }
-                                    values.push(row)
-                                }
-                                values
-                            }
-                        };
-                        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                            full_table_name,
-                            values,
-                        }))
-                    }
-                }
-            }
-            Query::Update(UpdateQuery {
-                schema_name,
-                table_name,
-                assignments: stmt_assignments,
-                where_clause,
-            }) => {
-                let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.catalog.table_definition(full_table_name.clone()) {
-                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                    Some(Some(table_info)) => {
-                        let table_columns = table_info.columns();
-                        let mut temp_column_names = vec![];
-                        for table_column in table_columns {
-                            let mut found = false;
-                            for stmt_assignment in stmt_assignments.iter() {
-                                if table_column.name() == stmt_assignment.column.as_str() {
-                                    temp_column_names.push(Some(stmt_assignment.value.clone()));
-                                    found = true;
-                                    break;
-                                }
-                            }
-                            if !found {
-                                temp_column_names.push(None);
-                            }
-                        }
-                        for assignment in stmt_assignments {
-                            let Assignment { column, .. } = assignment;
-                            if !table_info.has_column(&column) {
-                                return Err(AnalysisError::column_not_found(&column));
-                            }
-                        }
-                        let mut assignments = vec![];
-                        for temp_column_name in temp_column_names {
-                            match temp_column_name {
-                                None => assignments.push(None),
-                                Some(value) => {
-                                    assignments.push(Some(DynamicTreeBuilder::build_from(value, &table_columns)?));
-                                }
-                            }
-                        }
-                        let filter = match where_clause {
-                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
-                            None => None,
-                        };
-                        Ok(UntypedQuery::Update(UntypedUpdateQuery {
-                            full_table_name,
-                            assignments,
-                            filter,
-                        }))
-                    }
-                }
-            }
-            Query::Select(SelectQuery {
-                select_items,
-                schema_name,
-                table_name,
-                where_clause,
-            }) => {
-                let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.catalog.table_definition(full_table_name.clone()) {
-                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                    Some(Some(table_info)) => {
-                        let table_columns = table_info.columns();
-                        let mut projection_items = vec![];
-                        for item in select_items {
-                            match item {
-                                SelectItem::Wildcard => {
-                                    for (index, table_column) in table_columns.iter().enumerate() {
-                                        projection_items.push(DynamicUntypedTree::Item(DynamicUntypedItem::Column {
-                                            name: table_column.name().to_lowercase(),
-                                            index,
-                                            sql_type: table_column.sql_type(),
-                                        }));
-                                    }
-                                }
-                                SelectItem::UnnamedExpr(expr) => {
-                                    projection_items.push(DynamicTreeBuilder::build_from(expr, &table_columns)?)
-                                }
-                            }
-                        }
-                        let filter = match where_clause {
-                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
-                            None => None,
-                        };
-                        Ok(UntypedQuery::Select(UntypedSelectQuery {
-                            full_table_name,
-                            projection_items,
-                            filter,
-                        }))
-                    }
-                }
-            }
-            Query::Delete(DeleteQuery {
-                schema_name,
-                table_name,
-                where_clause,
-            }) => {
-                let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.catalog.table_definition(full_table_name.clone()) {
-                    None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
-                    Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
-                    Some(Some(table_info)) => {
-                        let table_columns = table_info.columns();
-                        let filter = match where_clause {
-                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
-                            None => None,
-                        };
-                        Ok(UntypedQuery::Delete(UntypedDeleteQuery {
-                            full_table_name,
-                            filter,
-                        }))
-                    }
-                }
-            }
-        }
-    }
-}
-
-pub struct QueryAnalyzerOld<'a> {
-    catalog: CatalogHandlerOld<'a>,
-}
-
-impl<'a> From<TransactionalDatabase<'a>> for QueryAnalyzerOld<'a> {
-    fn from(database: TransactionalDatabase<'a>) -> QueryAnalyzerOld<'a> {
-        QueryAnalyzerOld {
-            catalog: CatalogHandlerOld::from(database),
-        }
-    }
-}
-
-impl<'a> QueryAnalyzerOld<'a> {
-    pub fn analyze(&self, statement: Query) -> Result<UntypedQuery, AnalysisError> {
-        match statement {
+            Query::None => unimplemented!("whatever"),
             Query::Insert(InsertQuery {
                 schema_name,
                 table_name,

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use catalog::{CatalogHandler, CatalogHandlerOld};
+use catalog::CatalogHandler;
 use data_definition_execution_plan::{
     ColumnInfo, CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, SchemaChange,
 };
 use definition::{FullTableName, SchemaName};
 use query_ast::{ColumnDef, Definition};
 use query_response::QueryError;
-use storage::{Transaction, TransactionalDatabase};
+use storage::Transaction;
 use types::SqlType;
 
 pub struct DefinitionPlanner<'p> {
@@ -35,113 +35,6 @@ impl<'p> From<Transaction<'p>> for DefinitionPlanner<'p> {
 }
 
 impl<'p> DefinitionPlanner<'p> {
-    pub fn plan(&self, statement: Definition) -> Result<SchemaChange, SchemaPlanError> {
-        match statement {
-            Definition::CreateTable {
-                schema_name,
-                table_name,
-                columns,
-                if_not_exists,
-            } => {
-                if !(self.catalog.schema_exists(&SchemaName::from(&schema_name))) {
-                    Err(SchemaPlanError::schema_does_not_exist(&schema_name))
-                } else {
-                    let full_table_name = FullTableName::from((&schema_name, &table_name));
-                    let column_defs = columns
-                        .into_iter()
-                        .map(|ColumnDef { name, data_type }| ColumnInfo {
-                            name,
-                            sql_type: SqlType::from(data_type),
-                        })
-                        .collect::<Vec<_>>();
-                    Ok(SchemaChange::CreateTable(CreateTableQuery {
-                        full_table_name,
-                        column_defs,
-                        if_not_exists,
-                    }))
-                }
-            }
-            Definition::CreateSchema {
-                schema_name,
-                if_not_exists,
-            } => Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
-                schema_name: SchemaName::from(&schema_name),
-                if_not_exists,
-            })),
-            Definition::CreateIndex {
-                name,
-                schema_name,
-                table_name,
-                column_names,
-            } => {
-                let full_table_name = FullTableName::from((&schema_name, &table_name));
-                match self.catalog.table_definition(full_table_name.clone()) {
-                    None => Err(SchemaPlanError::schema_does_not_exist(full_table_name.schema())),
-                    Some(None) => Err(SchemaPlanError::table_does_not_exist(full_table_name)),
-                    Some(Some(table_info)) => {
-                        let table_columns = table_info.column_names();
-                        for column in column_names.iter() {
-                            if !table_columns.contains(&column) {
-                                return Err(SchemaPlanError::column_not_found(&column));
-                            }
-                        }
-                        Ok(SchemaChange::CreateIndex(CreateIndexQuery {
-                            name,
-                            full_table_name,
-                            column_names,
-                        }))
-                    }
-                }
-            }
-            Definition::DropTables {
-                names,
-                if_exists,
-                cascade,
-            } => {
-                let mut full_table_names = vec![];
-                for (schema_name, table_name) in names {
-                    let full_table_name = FullTableName::from((&schema_name, &table_name));
-                    if self.catalog.schema_exists(&SchemaName::from(&schema_name)) {
-                        full_table_names.push(full_table_name)
-                    } else {
-                        return Err(SchemaPlanError::schema_does_not_exist(&schema_name));
-                    }
-                }
-                Ok(SchemaChange::DropTables(DropTablesQuery {
-                    full_table_names,
-                    cascade,
-                    if_exists,
-                }))
-            }
-            Definition::DropSchemas {
-                names,
-                cascade,
-                if_exists,
-            } => {
-                let schema_names = names.iter().map(SchemaName::from).collect::<Vec<_>>();
-                Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-                    schema_names,
-                    cascade,
-                    if_exists,
-                }))
-            }
-        }
-    }
-}
-
-pub struct DefinitionPlannerOld<'p> {
-    catalog: CatalogHandlerOld<'p>,
-}
-
-impl<'p> From<TransactionalDatabase<'p>> for DefinitionPlannerOld<'p> {
-    fn from(database: TransactionalDatabase<'p>) -> Self {
-        DefinitionPlannerOld {
-            catalog: CatalogHandlerOld::from(database),
-        }
-    }
-}
-
-impl<'p> DefinitionPlannerOld<'p> {
     pub fn plan(&self, statement: Definition) -> Result<SchemaChange, SchemaPlanError> {
         match statement {
             Definition::CreateTable {

@@ -19,7 +19,7 @@ use crate::{
 };
 use data_repr::scalar::ScalarValue;
 use postgre_sql::{
-    query_ast::{Request, Statement, Transaction},
+    query_ast::{Query, Request, Statement, Transaction},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
     wire_protocol::{
@@ -107,18 +107,52 @@ impl Worker {
                                 connection.send(QueryEvent::ParseComplete.into()).unwrap();
                             }
                             _ => match query_parser.parse(&sql) {
-                                Ok(Request::Statement(statement)) => match statement {
-                                    Statement::Query(query) => {
-                                        query_plan_cache.save_parsed(statement_name, sql, query, param_types);
-                                        connection.send(QueryEvent::ParseComplete.into()).unwrap();
+                                Ok(request) => {
+                                    connection.send(QueryEvent::ParseComplete.into()).unwrap();
+                                    match request {
+                                        Request::Statement(statement) => match statement {
+                                            Statement::Query(query) => {
+                                                query_plan_cache.save_parsed(statement_name, sql, query, param_types);
+                                            }
+                                            other => {
+                                                connection
+                                                    .send(QueryError::syntax_error(format!("{:?}", other)).into())
+                                                    .unwrap();
+                                            }
+                                        },
+                                        Request::Transaction(transaction) => match transaction {
+                                            Transaction::Begin => {
+                                                debug_assert!(
+                                                    txn_state.is_none(),
+                                                    "transaction state should be implicit"
+                                                );
+                                                query_plan_cache.save_parsed(
+                                                    statement_name,
+                                                    sql,
+                                                    Query::None,
+                                                    param_types,
+                                                );
+                                                txn_state = Some(transaction_manager.start_transaction());
+                                                connection.send(OutboundMessage::TransactionBegin).unwrap();
+                                            }
+                                            Transaction::Commit => {
+                                                debug_assert!(
+                                                    txn_state.is_some(),
+                                                    "transaction state should be in progress"
+                                                );
+                                                match txn_state {
+                                                    None => unimplemented!(),
+                                                    Some(txn) => {
+                                                        txn.commit();
+                                                        connection.send(OutboundMessage::TransactionCommit).unwrap();
+                                                        txn_state = None;
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        other => unimplemented!("{:?} unimplemented", other),
                                     }
-                                    other => {
-                                        connection
-                                            .send(QueryError::syntax_error(format!("{:?}", other)).into())
-                                            .unwrap();
-                                    }
-                                },
-                                Ok(_) => unimplemented!(),
+                                }
                                 Err(parser_error) => {
                                     connection.send(QueryError::syntax_error(parser_error).into()).unwrap();
                                 }

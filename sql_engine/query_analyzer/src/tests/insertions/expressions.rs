@@ -23,202 +23,203 @@ fn insert_with_parameters(schema_name: &str, table_name: &str, parameters: Vec<u
 }
 
 #[test]
-fn insert_number() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
+fn insert_number() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+    catalog
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .unwrap();
 
-        assert_eq!(
-            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                    UntypedValue::Number(BigDecimal::from(1))
-                )))]],
-            }))
-        );
-        Ok(())
-    })
+    let analyzer = QueryAnalyzer::from(transaction);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Number(BigDecimal::from(1))
+            )))]],
+        }))
+    );
 }
 
 #[test]
-fn insert_string() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
-            .unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
+fn insert_string() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+    catalog
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
+        .unwrap();
 
-        assert_eq!(
-            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                    UntypedValue::String("str".to_owned())
-                )))]],
-            }))
-        );
-        Ok(())
-    })
+    let analyzer = QueryAnalyzer::from(transaction);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::String("str".to_owned())
+            )))]],
+        }))
+    );
 }
 
 #[test]
-fn insert_boolean() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
+fn insert_boolean() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+    catalog
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+        .unwrap();
 
-        assert_eq!(
-            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![boolean(true)]])),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                    UntypedValue::Bool(Bool(true))
-                )))]],
-            }))
-        );
-        Ok(())
-    })
+    let analyzer = QueryAnalyzer::from(transaction);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![boolean(true)]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Bool(Bool(true))
+            )))]],
+        }))
+    );
 }
 
 #[test]
-fn insert_null() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
+fn insert_null() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+    catalog
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+        .unwrap();
 
-        assert_eq!(
-            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                    UntypedValue::Null
-                )))]],
-            }))
-        );
-        Ok(())
-    })
+    let analyzer = QueryAnalyzer::from(transaction);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Null
+            )))]],
+        }))
+    );
 }
 
 #[test]
-fn insert_identifier() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
+fn insert_identifier() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+    catalog
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .unwrap();
 
-        assert_eq!(
-            analyzer.analyze(insert_with_values(
-                SCHEMA,
-                TABLE,
-                vec![vec![Expr::Column("col".to_owned())]]
-            )),
-            Err(AnalysisError::column_cant_be_referenced(&"col"))
-        );
-        Ok(())
-    })
+    let analyzer = QueryAnalyzer::from(transaction);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_values(
+            SCHEMA,
+            TABLE,
+            vec![vec![Expr::Column("col".to_owned())]]
+        )),
+        Err(AnalysisError::column_cant_be_referenced(&"col"))
+    );
 }
 
 #[test]
-fn insert_into_table_with_parameters() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(
-                SCHEMA,
-                TABLE,
-                vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
-            ))
-            .unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
+fn insert_into_table_with_parameters() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-        assert_eq!(
-            analyzer.analyze(insert_with_parameters(SCHEMA, TABLE, vec![1, 2])),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![
-                    Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
-                    Some(StaticUntypedTree::Item(StaticUntypedItem::Param(1)))
-                ]],
-            }))
-        );
-        Ok(())
-    })
+    catalog
+        .apply(create_table_ops(
+            SCHEMA,
+            TABLE,
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
+        ))
+        .unwrap();
+
+    let analyzer = QueryAnalyzer::from(transaction);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_parameters(SCHEMA, TABLE, vec![1, 2])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            values: vec![vec![
+                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
+                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(1)))
+            ]],
+        }))
+    );
 }
 
 #[test]
-fn insert_into_table_with_parameters_and_values() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(
-                SCHEMA,
-                TABLE,
-                vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
-            ))
-            .unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
+fn insert_into_table_with_parameters_and_values() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+    catalog
+        .apply(create_table_ops(
+            SCHEMA,
+            TABLE,
+            vec![("col_1", SqlType::small_int()), ("col_2", SqlType::small_int())],
+        ))
+        .unwrap();
 
-        assert_eq!(
-            analyzer.analyze(insert_with_values(
-                SCHEMA,
-                TABLE,
-                vec![vec![Expr::Param(1), Expr::Value(number(1))]]
-            )),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![
-                    Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
-                    Some(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    ))))
-                ]],
-            }))
-        );
-        Ok(())
-    })
+    let analyzer = QueryAnalyzer::from(transaction);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_values(
+            SCHEMA,
+            TABLE,
+            vec![vec![Expr::Param(1), Expr::Value(number(1))]]
+        )),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            values: vec![vec![
+                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
+                Some(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                    BigDecimal::from(1)
+                ))))
+            ]],
+        }))
+    );
 }
 
 #[test]
-fn insert_into_table_negative_number() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-            .unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
+fn insert_into_table_negative_number() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+    catalog
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .unwrap();
 
-        assert_eq!(
-            analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
-            Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                    UntypedValue::Number(BigDecimal::from(-32768))
-                )))]],
-            }))
-        );
-        Ok(())
-    })
+    let analyzer = QueryAnalyzer::from(transaction);
+
+    assert_eq!(
+        analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
+        Ok(UntypedQuery::Insert(UntypedInsertQuery {
+            full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
+                UntypedValue::Number(BigDecimal::from(-32768))
+            )))]],
+        }))
+    );
 }
 
 #[cfg(test)]
@@ -240,200 +241,202 @@ mod multiple_values {
     }
 
     #[test]
-    fn arithmetic() -> TransactionResult<()> {
-        Database::new("").old_transaction(|db| {
-            let catalog = CatalogHandlerOld::from(db.clone());
-            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-            catalog
-                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-                .unwrap();
-            let analyzer = QueryAnalyzerOld::from(db);
+    fn arithmetic() {
+        let db = Database::new("");
+        let transaction = db.transaction();
+        let catalog = CatalogHandler::from(transaction.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
 
-            assert_eq!(
-                analyzer.analyze(insert_value_as_expression_with_operation(
-                    Expr::Value(number(1)),
-                    BinaryOperator::Plus,
-                    Expr::Value(number(1))
-                )),
-                Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                    values: vec![vec![Some(StaticUntypedTree::BiOp {
-                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                            BigDecimal::from(1)
-                        )))),
-                        op: BiOperator::Arithmetic(BiArithmetic::Add),
-                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                            BigDecimal::from(1)
-                        ))))
-                    })]],
-                }))
-            );
-            Ok(())
-        })
+        let analyzer = QueryAnalyzer::from(transaction);
+
+        assert_eq!(
+            analyzer.analyze(insert_value_as_expression_with_operation(
+                Expr::Value(number(1)),
+                BinaryOperator::Plus,
+                Expr::Value(number(1))
+            )),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    )))),
+                    op: BiOperator::Arithmetic(BiArithmetic::Add),
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    ))))
+                })]],
+            }))
+        );
     }
 
     #[test]
-    fn string_operation() -> TransactionResult<()> {
-        Database::new("").old_transaction(|db| {
-            let catalog = CatalogHandlerOld::from(db.clone());
-            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-            catalog
-                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
-                .unwrap();
-            let analyzer = QueryAnalyzerOld::from(db);
+    fn string_operation() {
+        let db = Database::new("");
+        let transaction = db.transaction();
+        let catalog = CatalogHandler::from(transaction.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-            assert_eq!(
-                analyzer.analyze(insert_value_as_expression_with_operation(
-                    string("str"),
-                    BinaryOperator::StringConcat,
-                    string("str")
-                )),
-                Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                    values: vec![vec![Some(StaticUntypedTree::BiOp {
-                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
-                            "str".to_owned()
-                        )))),
-                        op: BiOperator::StringOp(Concat),
-                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
-                            "str".to_owned()
-                        ))))
-                    })]],
-                }))
-            );
-            Ok(())
-        })
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
+            .unwrap();
+
+        let analyzer = QueryAnalyzer::from(transaction);
+
+        assert_eq!(
+            analyzer.analyze(insert_value_as_expression_with_operation(
+                string("str"),
+                BinaryOperator::StringConcat,
+                string("str")
+            )),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                        "str".to_owned()
+                    )))),
+                    op: BiOperator::StringOp(Concat),
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                        "str".to_owned()
+                    ))))
+                })]],
+            }))
+        );
     }
 
     #[test]
-    fn comparison() -> TransactionResult<()> {
-        Database::new("").old_transaction(|db| {
-            let catalog = CatalogHandlerOld::from(db.clone());
-            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-            catalog
-                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-                .unwrap();
-            let analyzer = QueryAnalyzerOld::from(db);
+    fn comparison() {
+        let db = Database::new("");
+        let transaction = db.transaction();
+        let catalog = CatalogHandler::from(transaction.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
 
-            assert_eq!(
-                analyzer.analyze(insert_value_as_expression_with_operation(
-                    Expr::Value(number(1)),
-                    BinaryOperator::Gt,
-                    Expr::Value(number(1))
-                )),
-                Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                    values: vec![vec![Some(StaticUntypedTree::BiOp {
-                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                            BigDecimal::from(1)
-                        )))),
-                        op: BiOperator::Comparison(Comparison::Gt),
-                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                            BigDecimal::from(1)
-                        ))))
-                    })]],
-                }))
-            );
-            Ok(())
-        })
+        let analyzer = QueryAnalyzer::from(transaction);
+
+        assert_eq!(
+            analyzer.analyze(insert_value_as_expression_with_operation(
+                Expr::Value(number(1)),
+                BinaryOperator::Gt,
+                Expr::Value(number(1))
+            )),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    )))),
+                    op: BiOperator::Comparison(Comparison::Gt),
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    ))))
+                })]],
+            }))
+        );
     }
 
     #[test]
-    fn logical() -> TransactionResult<()> {
-        Database::new("").old_transaction(|db| {
-            let catalog = CatalogHandlerOld::from(db.clone());
-            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-            catalog
-                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-                .unwrap();
-            let analyzer = QueryAnalyzerOld::from(db);
+    fn logical() {
+        let db = Database::new("");
+        let transaction = db.transaction();
+        let catalog = CatalogHandler::from(transaction.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
 
-            assert_eq!(
-                analyzer.analyze(insert_value_as_expression_with_operation(
-                    Expr::Value(Value::Boolean(true)),
-                    BinaryOperator::And,
-                    Expr::Value(Value::Boolean(true)),
-                )),
-                Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                    values: vec![vec![Some(StaticUntypedTree::BiOp {
-                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
-                            Bool(true)
-                        )))),
-                        op: BiOperator::Logical(BiLogical::And),
-                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
-                            Bool(true)
-                        )))),
-                    })]],
-                }))
-            );
-            Ok(())
-        })
+        let analyzer = QueryAnalyzer::from(transaction);
+
+        assert_eq!(
+            analyzer.analyze(insert_value_as_expression_with_operation(
+                Expr::Value(Value::Boolean(true)),
+                BinaryOperator::And,
+                Expr::Value(Value::Boolean(true)),
+            )),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
+                        Bool(true)
+                    )))),
+                    op: BiOperator::Logical(BiLogical::And),
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
+                        Bool(true)
+                    )))),
+                })]],
+            }))
+        );
     }
 
     #[test]
-    fn bitwise() -> TransactionResult<()> {
-        Database::new("").old_transaction(|db| {
-            let catalog = CatalogHandlerOld::from(db.clone());
-            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-            catalog
-                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
-                .unwrap();
-            let analyzer = QueryAnalyzerOld::from(db);
+    fn bitwise() {
+        let db = Database::new("");
+        let transaction = db.transaction();
+        let catalog = CatalogHandler::from(transaction.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-            assert_eq!(
-                analyzer.analyze(insert_value_as_expression_with_operation(
-                    Expr::Value(number(1)),
-                    BinaryOperator::BitwiseOr,
-                    Expr::Value(number(1))
-                )),
-                Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                    values: vec![vec![Some(StaticUntypedTree::BiOp {
-                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                            BigDecimal::from(1)
-                        )))),
-                        op: BiOperator::Bitwise(Bitwise::Or),
-                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
-                            BigDecimal::from(1)
-                        ))))
-                    })]],
-                }))
-            );
-            Ok(())
-        })
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .unwrap();
+
+        let analyzer = QueryAnalyzer::from(transaction);
+
+        assert_eq!(
+            analyzer.analyze(insert_value_as_expression_with_operation(
+                Expr::Value(number(1)),
+                BinaryOperator::BitwiseOr,
+                Expr::Value(number(1))
+            )),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    )))),
+                    op: BiOperator::Bitwise(Bitwise::Or),
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    ))))
+                })]],
+            }))
+        );
     }
 
     #[test]
-    fn pattern_matching() -> TransactionResult<()> {
-        Database::new("").old_transaction(|db| {
-            let catalog = CatalogHandlerOld::from(db.clone());
-            catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-            catalog
-                .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-                .unwrap();
-            let analyzer = QueryAnalyzerOld::from(db);
+    fn pattern_matching() {
+        let db = Database::new("");
+        let transaction = db.transaction();
+        let catalog = CatalogHandler::from(transaction.clone());
+        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+        catalog
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
+            .unwrap();
 
-            assert_eq!(
-                analyzer.analyze(insert_value_as_expression_with_operation(
-                    string("s"),
-                    BinaryOperator::Like,
-                    string("str")
-                )),
-                Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                    full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                    values: vec![vec![Some(StaticUntypedTree::BiOp {
-                        left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
-                            "s".to_owned()
-                        )))),
-                        op: BiOperator::Matching(Matching::Like),
-                        right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
-                            "str".to_owned()
-                        ))))
-                    })]],
-                }))
-            );
-            Ok(())
-        })
+        let analyzer = QueryAnalyzer::from(transaction);
+
+        assert_eq!(
+            analyzer.analyze(insert_value_as_expression_with_operation(
+                string("s"),
+                BinaryOperator::Like,
+                string("str")
+            )),
+            Ok(UntypedQuery::Insert(UntypedInsertQuery {
+                full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
+                values: vec![vec![Some(StaticUntypedTree::BiOp {
+                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                        "s".to_owned()
+                    )))),
+                    op: BiOperator::Matching(Matching::Like),
+                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                        "str".to_owned()
+                    ))))
+                })]],
+            }))
+        );
     }
 }

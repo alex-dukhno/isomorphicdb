@@ -14,18 +14,17 @@
 
 use data_manipulation::{QueryPlan, UntypedQuery};
 use data_repr::scalar::ScalarValue;
-pub use node_engine::NodeEngine;
+pub use engine::NodeEngine;
 use postgre_sql::query_ast::Query;
 use std::collections::HashMap;
 use types::SqlTypeFamily;
 
-mod node_engine;
+pub mod engine;
 mod query_executor;
 mod transaction_manager;
 mod worker;
 
 #[derive(Default)]
-#[allow(dead_code)]
 pub struct QueryPlanCache {
     plans: HashMap<String, (Query, Vec<SqlTypeFamily>)>,
     extended_query: HashMap<String, PreparedStatementState>,
@@ -33,7 +32,6 @@ pub struct QueryPlanCache {
     all_portals: HashMap<String, Portal>,
 }
 
-#[allow(dead_code)]
 impl QueryPlanCache {
     pub fn save_parsed(&mut self, name: String, sql: String, query: Query, param_types: Vec<u32>) {
         self.extended_query.insert(

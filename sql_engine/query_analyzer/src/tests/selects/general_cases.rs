@@ -15,30 +15,28 @@
 use super::*;
 
 #[test]
-fn schema_does_not_exist() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let analyzer = QueryAnalyzerOld::from(db);
-        assert_eq!(
-            analyzer.analyze(select("non_existent_schema", TABLE)),
-            Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
-        );
-        Ok(())
-    })
+fn schema_does_not_exist() {
+    let db = Database::new("");
+    let analyzer = QueryAnalyzer::from(db.transaction());
+    assert_eq!(
+        analyzer.analyze(select("non_existent_schema", TABLE)),
+        Err(AnalysisError::schema_does_not_exist(&"non_existent_schema"))
+    );
 }
 
 #[test]
-fn table_does_not_exist() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let analyzer = QueryAnalyzerOld::from(db);
-        assert_eq!(
-            analyzer.analyze(select(SCHEMA, "non_existent_table")),
-            Err(AnalysisError::table_does_not_exist(&format!(
-                "{}.{}",
-                SCHEMA, "non_existent_table"
-            )))
-        );
-        Ok(())
-    })
+fn table_does_not_exist() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
+
+    let analyzer = QueryAnalyzer::from(transaction);
+    assert_eq!(
+        analyzer.analyze(select(SCHEMA, "non_existent_table")),
+        Err(AnalysisError::table_does_not_exist(&format!(
+            "{}.{}",
+            SCHEMA, "non_existent_table"
+        )))
+    );
 }
