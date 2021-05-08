@@ -2,8 +2,7 @@ name: pgjdbc driver
 
 on:
   schedule:
-    - cron: 0 0 * * 1 # weekly on Monday
-  workflow_dispatch:
+    - cron: 0 0 1 * * # monthly
 
 defaults:
   run:
@@ -17,7 +16,7 @@ jobs:
         run: |
           docker run -it -d --network host -p 5432:5432 ghcr.io/alex-dukhno/isomorphicdb
           echo 'CONTAINER_ID='$(docker ps -q) >> $GITHUB_ENV
-      - name: checkout impossibl/pgjdbc-ng
+      - name: checkout pgjdbc/pgjdbc repository
         uses: actions/checkout@v2
         with:
           repository: 'pgjdbc/pgjdbc'
