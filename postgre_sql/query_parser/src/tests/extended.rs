@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use query_ast::Extended;
+use query_ast::Prepared;
 
 #[test]
 fn prepare() {
@@ -22,7 +22,7 @@ fn prepare() {
 
     assert_eq!(
         statement,
-        Ok(Request::Statement(Statement::Extended(Extended::Prepare {
+        Ok(Request::Statement(Statement::Prepared(Prepared::Prepare {
             query: Query::Insert(InsertQuery {
                 schema_name: "schema_name".to_owned(),
                 table_name: "table_name".to_owned(),
@@ -41,7 +41,7 @@ fn deallocate() {
 
     assert_eq!(
         statement,
-        Ok(Request::Statement(Statement::Extended(Extended::Deallocate {
+        Ok(Request::Statement(Statement::Prepared(Prepared::Deallocate {
             name: "foo_plan".to_owned()
         })))
     );
@@ -53,7 +53,7 @@ fn execute() {
 
     assert_eq!(
         statement,
-        Ok(Request::Statement(Statement::Extended(Extended::Execute {
+        Ok(Request::Statement(Statement::Prepared(Prepared::Execute {
             name: "foo_plan".to_owned(),
             param_values: vec![Value::Int(123)]
         })))

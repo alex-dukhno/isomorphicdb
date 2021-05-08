@@ -25,7 +25,7 @@ pub enum Request {
 pub enum Statement {
     Definition(Definition),
     Query(Query),
-    Extended(Extended),
+    Prepared(Prepared),
 }
 
 impl Display for Statement {
@@ -223,7 +223,7 @@ pub struct Set {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Extended {
+pub enum Prepared {
     Prepare {
         query: Query,
         name: String,

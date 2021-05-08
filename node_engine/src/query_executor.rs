@@ -16,7 +16,7 @@ use crate::{transaction_manager::TransactionContext, QueryPlanCache};
 use data_manipulation::{QueryExecutionError, QueryExecutionResult, UntypedQuery};
 use data_repr::scalar::ScalarValue;
 use postgre_sql::{
-    query_ast::{Extended, Query, Statement},
+    query_ast::{Prepared, Query, Statement},
     query_response::{QueryError, QueryEvent},
     wire_protocol::payload::OutboundMessage,
 };
@@ -83,8 +83,8 @@ impl QueryExecutor {
                 Ok(success) => responses.push(success.into()),
                 Err(failure) => responses.push(failure.into()),
             },
-            Statement::Extended(extended) => match extended {
-                Extended::Prepare {
+            Statement::Prepared(prepared) => match prepared {
+                Prepared::Prepare {
                     query,
                     name,
                     param_types,
@@ -96,7 +96,7 @@ impl QueryExecutor {
                     query_plan_cache.allocate(name, query_plan, query, params);
                     responses.push(OutboundMessage::StatementPrepared);
                 }
-                Extended::Execute { name, param_values } => {
+                Prepared::Execute { name, param_values } => {
                     match query_plan_cache.lookup(&name) {
                         None => responses.push(QueryError::prepared_statement_does_not_exist(&name).into()),
                         // TODO: workaround situation that QueryPlan is not cloneable ¯\_(ツ)_/¯
@@ -113,7 +113,7 @@ impl QueryExecutor {
                         }
                     }
                 }
-                Extended::Deallocate { name } => match query_plan_cache.deallocate(&name) {
+                Prepared::Deallocate { name } => match query_plan_cache.deallocate(&name) {
                     None => responses.push(QueryError::prepared_statement_does_not_exist(&name).into()),
                     Some(_) => responses.push(OutboundMessage::StatementDeallocated),
                 },

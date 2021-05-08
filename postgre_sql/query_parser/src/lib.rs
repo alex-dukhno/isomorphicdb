@@ -14,9 +14,9 @@
 
 use postgres_parser::{nodes, sys, Node, PgParserError, SqlStatementScanner};
 use query_ast::{
-    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteQuery, Expr, Extended, InsertQuery,
-    InsertSource, Query, Request, SelectItem, SelectQuery, Set, Statement, Transaction, UnaryOperator, UpdateQuery,
-    Value, Values,
+    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteQuery, Expr, InsertQuery, InsertSource,
+    Prepared, Query, Request, SelectItem, SelectQuery, Set, Statement, Transaction, UnaryOperator, UpdateQuery, Value,
+    Values,
 };
 use query_response::QueryError;
 use std::fmt::{self, Display, Formatter};
@@ -205,7 +205,7 @@ impl QueryParser {
                             _ => unimplemented!(),
                         }
                     }
-                    return Ok(Request::Statement(Statement::Extended(Extended::Prepare {
+                    return Ok(Request::Statement(Statement::Prepared(Prepared::Prepare {
                         name,
                         param_types,
                         query: self.process_query(*query),
@@ -222,13 +222,13 @@ impl QueryParser {
                             other => unreachable!("{:?} could not be used as parameter", other),
                         }
                     }
-                    return Ok(Request::Statement(Statement::Extended(Extended::Execute {
+                    return Ok(Request::Statement(Statement::Prepared(Prepared::Execute {
                         name,
                         param_values,
                     })));
                 }
                 Ok(Some(Node::DeallocateStmt(nodes::DeallocateStmt { name: Some(name) }))) => {
-                    return Ok(Request::Statement(Statement::Extended(Extended::Deallocate { name })))
+                    return Ok(Request::Statement(Statement::Prepared(Prepared::Deallocate { name })))
                 }
                 Ok(Some(Node::TransactionStmt(nodes::TransactionStmt { kind, .. }))) => {
                     let stmt = match kind {
