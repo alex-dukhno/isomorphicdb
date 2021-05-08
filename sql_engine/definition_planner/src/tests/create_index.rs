@@ -27,93 +27,87 @@ fn create_index(index_name: &str, schema_name: &str, table_name: &str, columns: 
 }
 
 #[test]
-fn create_index_for_not_existent_schema() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let planner = DefinitionPlannerOld::from(db);
-        assert_eq!(
-            planner.plan(create_index("index_name", "non_existent", TABLE, vec!["column"])),
-            Err(SchemaPlanError::schema_does_not_exist(&"non_existent"))
-        );
-        Ok(())
-    })
+fn create_index_for_not_existent_schema() {
+    let db = Database::new("");
+    let planner = DefinitionPlanner::from(db.transaction());
+    assert_eq!(
+        planner.plan(create_index("index_name", "non_existent", TABLE, vec!["column"])),
+        Err(SchemaPlanError::schema_does_not_exist(&"non_existent"))
+    );
 }
 
 #[test]
-fn create_index_for_not_existent_table() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let planner = DefinitionPlannerOld::from(db);
-        assert_eq!(
-            planner.plan(create_index(
-                "index_name",
-                DEFAULT_SCHEMA,
-                "non_existent",
-                vec!["column"]
-            )),
-            Err(SchemaPlanError::table_does_not_exist(&format!(
-                "{}.{}",
-                DEFAULT_SCHEMA, "non_existent"
-            )))
-        );
-        Ok(())
-    })
+fn create_index_for_not_existent_table() {
+    let db = Database::new("");
+    let planner = DefinitionPlanner::from(db.transaction());
+    assert_eq!(
+        planner.plan(create_index(
+            "index_name",
+            DEFAULT_SCHEMA,
+            "non_existent",
+            vec!["column"]
+        )),
+        Err(SchemaPlanError::table_does_not_exist(&format!(
+            "{}.{}",
+            DEFAULT_SCHEMA, "non_existent"
+        )))
+    );
 }
 
 #[test]
-fn create_index_over_column_that_does_not_exists_in_table() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog
-            .apply(create_table_ops(
-                "public",
-                TABLE,
-                vec![("column", SqlType::small_int())],
-            ))
-            .unwrap();
+fn create_index_over_column_that_does_not_exists_in_table() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog
+        .apply(create_table_ops(
+            "public",
+            TABLE,
+            vec![("column", SqlType::small_int())],
+        ))
+        .unwrap();
 
-        let planner = DefinitionPlannerOld::from(db);
-        assert_eq!(
-            planner.plan(create_index(
-                "index_name",
-                DEFAULT_SCHEMA,
-                TABLE,
-                vec!["non_existent_column"]
-            )),
-            Err(SchemaPlanError::column_not_found(&"non_existent_column"))
-        );
-        Ok(())
-    })
+    let planner = DefinitionPlanner::from(transaction);
+    assert_eq!(
+        planner.plan(create_index(
+            "index_name",
+            DEFAULT_SCHEMA,
+            TABLE,
+            vec!["non_existent_column"]
+        )),
+        Err(SchemaPlanError::column_not_found(&"non_existent_column"))
+    );
 }
 
 #[test]
-fn create_index_over_multiple_columns() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog
-            .apply(create_table_ops(
-                "public",
-                TABLE,
-                vec![
-                    ("col_1", SqlType::small_int()),
-                    ("col_2", SqlType::small_int()),
-                    ("col_3", SqlType::small_int()),
-                ],
-            ))
-            .unwrap();
+fn create_index_over_multiple_columns() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog
+        .apply(create_table_ops(
+            "public",
+            TABLE,
+            vec![
+                ("col_1", SqlType::small_int()),
+                ("col_2", SqlType::small_int()),
+                ("col_3", SqlType::small_int()),
+            ],
+        ))
+        .unwrap();
 
-        let planner = DefinitionPlannerOld::from(db);
-        assert_eq!(
-            planner.plan(create_index(
-                "index_name",
-                DEFAULT_SCHEMA,
-                TABLE,
-                vec!["col_1", "col_2", "col_3"]
-            )),
-            Ok(SchemaChange::CreateIndex(CreateIndexQuery {
-                name: "index_name".to_owned(),
-                full_table_name: FullTableName::from((&DEFAULT_SCHEMA, &TABLE)),
-                column_names: vec!["col_1".to_owned(), "col_2".to_owned(), "col_3".to_owned()]
-            }))
-        );
-        Ok(())
-    })
+    let planner = DefinitionPlanner::from(transaction);
+    assert_eq!(
+        planner.plan(create_index(
+            "index_name",
+            DEFAULT_SCHEMA,
+            TABLE,
+            vec!["col_1", "col_2", "col_3"]
+        )),
+        Ok(SchemaChange::CreateIndex(CreateIndexQuery {
+            name: "index_name".to_owned(),
+            full_table_name: FullTableName::from((&DEFAULT_SCHEMA, &TABLE)),
+            column_names: vec!["col_1".to_owned(), "col_2".to_owned(), "col_3".to_owned()]
+        }))
+    );
 }

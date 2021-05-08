@@ -27,21 +27,6 @@ use std::{
 
 pub type Key = Vec<BinaryValue>;
 pub type Value = Vec<BinaryValue>;
-pub type TransactionResult<R> = Result<R, TransactionError>;
-pub type ConflictableTransactionResult<R> = Result<R, ConflictableTransactionError>;
-
-#[derive(Debug, PartialEq)]
-pub enum TransactionError {
-    Abort,
-    Storage,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum ConflictableTransactionError {
-    Abort,
-    Storage,
-    Conflict,
-}
 
 pub struct Cursor {
     source: Box<dyn Iterator<Item = (Vec<BinaryValue>, Vec<BinaryValue>)>>,
@@ -85,25 +70,6 @@ impl Database {
         }
     }
 
-    pub fn old_transaction<F, R>(&self, mut f: F) -> TransactionResult<R>
-    where
-        // TODO: make it Fn otherwise it won't work with sled
-        F: FnMut(TransactionalDatabase) -> ConflictableTransactionResult<R>,
-    {
-        loop {
-            match f(self.transactional()) {
-                Ok(result) => return Ok(result),
-                Err(ConflictableTransactionError::Storage) => return Err(TransactionError::Storage),
-                Err(ConflictableTransactionError::Abort) => return Err(TransactionError::Abort),
-                Err(ConflictableTransactionError::Conflict) => {}
-            }
-        }
-    }
-
-    fn transactional(&self) -> TransactionalDatabase {
-        TransactionalDatabase::from(self.inner.lock().unwrap())
-    }
-
     pub fn transaction(&self) -> Transaction {
         Transaction {
             guard: Rc::new(self.inner.lock().unwrap()),
@@ -127,31 +93,6 @@ impl<'t> Transaction<'t> {
 
     pub fn create_tree<T: Into<String>>(&self, full_table_name: T) {
         self.guard.create_tree(full_table_name)
-    }
-}
-
-#[derive(Clone)]
-pub struct TransactionalDatabase<'t> {
-    inner: Rc<MutexGuard<'t, DatabaseInner>>,
-}
-
-impl<'t> TransactionalDatabase<'t> {
-    pub fn lookup_table_ref<T: Into<String>>(&self, full_table_name: T) -> TableRef {
-        TableRef::from(self.inner.lookup_tree(full_table_name))
-    }
-
-    pub fn drop_tree<T: Into<String>>(&self, full_table_name: T) {
-        self.inner.drop_tree(full_table_name)
-    }
-
-    pub fn create_tree<T: Into<String>>(&self, full_table_name: T) {
-        self.inner.create_tree(full_table_name)
-    }
-}
-
-impl<'t> From<MutexGuard<'t, DatabaseInner>> for TransactionalDatabase<'t> {
-    fn from(guard: MutexGuard<'t, DatabaseInner>) -> TransactionalDatabase {
-        TransactionalDatabase { inner: Rc::new(guard) }
     }
 }
 

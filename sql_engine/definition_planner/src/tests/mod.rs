@@ -14,7 +14,7 @@
 
 use super::*;
 use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, SchemaChange};
-use storage::{Database, TransactionResult};
+use storage::Database;
 
 #[cfg(test)]
 mod create_index;

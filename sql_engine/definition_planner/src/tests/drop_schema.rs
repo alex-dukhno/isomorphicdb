@@ -35,74 +35,72 @@ fn drop_cascade(names: Vec<&str>) -> Definition {
 }
 
 #[test]
-fn drop_non_existent_schema() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let planner = DefinitionPlannerOld::from(db);
-        assert_eq!(
-            planner.plan(drop_schema_stmt(vec!["non_existent"])),
-            Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-                schema_names: vec![SchemaName::from(&"non_existent")],
-                cascade: false,
-                if_exists: false,
-            }))
-        );
-        Ok(())
-    })
+fn drop_non_existent_schema() {
+    let db = Database::new("");
+
+    let planner = DefinitionPlanner::from(db.transaction());
+    assert_eq!(
+        planner.plan(drop_schema_stmt(vec!["non_existent"])),
+        Ok(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&"non_existent")],
+            cascade: false,
+            if_exists: false,
+        }))
+    );
 }
 
 #[test]
-fn drop_schema() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let planner = DefinitionPlannerOld::from(db);
+fn drop_schema() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-        assert_eq!(
-            planner.plan(drop_schema_stmt(vec![SCHEMA])),
-            Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-                schema_names: vec![SchemaName::from(&SCHEMA)],
-                cascade: false,
-                if_exists: false,
-            }))
-        );
-        Ok(())
-    })
+    let planner = DefinitionPlanner::from(transaction);
+    assert_eq!(
+        planner.plan(drop_schema_stmt(vec![SCHEMA])),
+        Ok(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA)],
+            cascade: false,
+            if_exists: false,
+        }))
+    );
 }
 
 #[test]
-fn drop_schema_cascade() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let analyzer = DefinitionPlannerOld::from(db);
+fn drop_schema_cascade() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-        assert_eq!(
-            analyzer.plan(drop_cascade(vec![SCHEMA])),
-            Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-                schema_names: vec![SchemaName::from(&SCHEMA)],
-                cascade: true,
-                if_exists: false,
-            }))
-        );
-        Ok(())
-    })
+    let planner = DefinitionPlanner::from(transaction);
+
+    assert_eq!(
+        planner.plan(drop_cascade(vec![SCHEMA])),
+        Ok(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA)],
+            cascade: true,
+            if_exists: false,
+        }))
+    );
 }
 
 #[test]
-fn drop_schema_if_exists() -> TransactionResult<()> {
-    Database::new("").old_transaction(|db| {
-        let catalog = CatalogHandlerOld::from(db.clone());
-        catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        let planner = DefinitionPlannerOld::from(db);
+fn drop_schema_if_exists() {
+    let db = Database::new("");
+    let transaction = db.transaction();
+    let catalog = CatalogHandler::from(transaction.clone());
+    catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-        assert_eq!(
-            planner.plan(drop_if_exists(vec![SCHEMA, "schema_1"])),
-            Ok(SchemaChange::DropSchemas(DropSchemasQuery {
-                schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&"schema_1")],
-                cascade: false,
-                if_exists: true,
-            }))
-        );
-        Ok(())
-    })
+    let planner = DefinitionPlanner::from(transaction);
+
+    assert_eq!(
+        planner.plan(drop_if_exists(vec![SCHEMA, "schema_1"])),
+        Ok(SchemaChange::DropSchemas(DropSchemasQuery {
+            schema_names: vec![SchemaName::from(&SCHEMA), SchemaName::from(&"schema_1")],
+            cascade: false,
+            if_exists: true,
+        }))
+    );
 }

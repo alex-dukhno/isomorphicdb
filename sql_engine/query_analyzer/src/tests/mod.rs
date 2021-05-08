@@ -18,7 +18,7 @@ use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQ
 use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching};
 use definition::SchemaName;
 use query_ast::{Assignment, BinaryOperator, Expr, Value};
-use storage::{Database, TransactionResult};
+use storage::Database;
 use types::{Bool, SqlType};
 
 #[cfg(test)]
