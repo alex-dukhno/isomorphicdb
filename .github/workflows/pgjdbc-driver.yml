@@ -2,8 +2,7 @@ name: pgjdbc driver
 
 on:
   schedule:
-    - cron: 0 0 * * 1 # weekly on Monday
-  workflow_dispatch:
+    - cron: 0 0 1 * * # monthly
 
 defaults:
   run:
