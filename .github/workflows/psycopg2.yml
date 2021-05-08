@@ -32,13 +32,8 @@ jobs:
         run: sudo apt-get install -y libpq-dev
       - name: run psycopg2 test suite
         run: |
-          python setup.py build
-          python setup.py install
-          python -c "import tests; tests.unittest.main(defaultTest='tests.test_suite')" --verbose
-        env:
-          PSYCOPG2_TESTDB: test
-          PSYCOPG2_TESTDB_HOST: localhost
-          PSYCOPG2_TESTDB_PORT: 5432
-          PSYCOPG2_TESTDB_USER: postgres
+          PSYCOPG2_TESTDB=test PSYCOPG2_TESTDB_HOST=localhost PSYCOPG2_TESTDB_PORT=5432 PSYCOPG2_TESTDB_USER=postgres python setup.py build
+          PSYCOPG2_TESTDB=test PSYCOPG2_TESTDB_HOST=localhost PSYCOPG2_TESTDB_PORT=5432 PSYCOPG2_TESTDB_USER=postgres python setup.py install
+          PSYCOPG2_TESTDB=test PSYCOPG2_TESTDB_HOST=localhost PSYCOPG2_TESTDB_PORT=5432 PSYCOPG2_TESTDB_USER=postgres python -c "import tests; tests.unittest.main(defaultTest='tests.test_suite')" --verbose
       - name: stop IsomorphicDB docker container
         run: docker stop ${{ env.CONTAINER_ID }}
