@@ -1,0 +1,30 @@
+name: pgjdbc-ng driver
+
+on:
+  schedule:
+    - cron: 0 0 * * 1 # weekly on Monday
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  impossibl-pgjdbc-ng-driver:
+    runs-on: ubuntu-latest
+    steps:
+      - name: start IsomorphicDB docker container
+        run: |
+          docker run -it -d --network host -p 5432:5432 ghcr.io/alex-dukhno/isomorphicdb
+          echo 'CONTAINER_ID='$(docker ps -q) >> $GITHUB_ENV
+      - name: checkout impossibl/pgjdbc-ng
+        uses: actions/checkout@v2
+        with:
+          repository: 'impossibl/pgjdbc-ng'
+      - name: set-up-java
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: run pgjdbc-ng test suite
+        run: ./gradlew -PnoDocker=true test
+      - name: stop IsomorphicDB docker container
+        run: docker stop ${{ env.CONTAINER_ID }}
