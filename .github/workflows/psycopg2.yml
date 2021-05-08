@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ 3.5, 3.6, 3.7, 3.8 ]
+        python-version: [ 3.6, 3.7, 3.8 ]
     steps:
       - name: start IsomorphicDB docker container
         run: |
@@ -35,5 +35,10 @@ jobs:
           python setup.py build
           python setup.py install
           python -c "import tests; tests.unittest.main(defaultTest='tests.test_suite')" --verbose
+        env:
+          PSYCOPG2_TESTDB: test
+          PSYCOPG2_TESTDB_HOST: localhost
+          PSYCOPG2_TESTDB_PORT: 5432
+          PSYCOPG2_TESTDB_USER: postgres
       - name: stop IsomorphicDB docker container
         run: docker stop ${{ env.CONTAINER_ID }}
