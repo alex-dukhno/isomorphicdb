@@ -22,7 +22,7 @@ fn smallint() {
 
     assert_eq!(
         type_inference.infer_static(untyped_tree, &[]),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        TypedTree::Item(TypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::SmallInt
         }))
@@ -36,7 +36,7 @@ fn integer() {
 
     assert_eq!(
         type_inference.infer_static(untyped_tree, &[]),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        TypedTree::Item(TypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(i32::MAX - i16::MAX as i32),
             type_family: SqlTypeFamily::Integer
         }))
@@ -50,7 +50,7 @@ fn bigint() {
 
     assert_eq!(
         type_inference.infer_static(tree, &[]),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        TypedTree::Item(TypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(i64::MAX - i32::MAX as i64),
             type_family: SqlTypeFamily::BigInt
         }))
@@ -64,7 +64,7 @@ fn real() {
 
     assert_eq!(
         type_inference.infer_static(tree, &[]),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        TypedTree::Item(TypedItem::Const(TypedValue::Num {
             value: BigDecimal::from_str("3.8").unwrap(),
             type_family: SqlTypeFamily::Real
         }))
@@ -78,6 +78,6 @@ fn string() {
 
     assert_eq!(
         type_inference.infer_static(tree, &[]),
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String("str".to_owned())))
+        TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned())))
     );
 }

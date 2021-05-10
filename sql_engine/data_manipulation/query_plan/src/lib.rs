@@ -17,7 +17,7 @@
 use bigdecimal::{BigDecimal, FromPrimitive};
 use binary::BinaryValue;
 use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
+use data_manipulation_typed_tree::TypedTree;
 use definition::ColumnDef;
 use query_response::QueryEvent;
 use scalar::ScalarValue;
@@ -87,16 +87,16 @@ pub trait Flow {
     fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError>;
 }
 
-pub struct StaticValues(Box<dyn Iterator<Item = Vec<Option<StaticTypedTree>>>>);
+pub struct StaticValues(Box<dyn Iterator<Item = Vec<Option<TypedTree>>>>);
 
 impl StaticValues {
-    pub fn new(values: Vec<Vec<Option<StaticTypedTree>>>) -> Box<StaticValues> {
+    pub fn new(values: Vec<Vec<Option<TypedTree>>>) -> Box<StaticValues> {
         Box::new(StaticValues(Box::new(values.into_iter())))
     }
 }
 
 impl Flow for StaticValues {
-    type Output = Vec<Option<StaticTypedTree>>;
+    type Output = Vec<Option<TypedTree>>;
 
     fn next_tuple(&mut self, _param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         Ok(self.0.next())
@@ -104,11 +104,11 @@ impl Flow for StaticValues {
 }
 
 pub struct StaticExpressionEval {
-    source: Box<dyn Flow<Output = Vec<Option<StaticTypedTree>>>>,
+    source: Box<dyn Flow<Output = Vec<Option<TypedTree>>>>,
 }
 
 impl StaticExpressionEval {
-    pub fn new(source: Box<dyn Flow<Output = Vec<Option<StaticTypedTree>>>>) -> Box<StaticExpressionEval> {
+    pub fn new(source: Box<dyn Flow<Output = Vec<Option<TypedTree>>>>) -> Box<StaticExpressionEval> {
         Box::new(StaticExpressionEval { source })
     }
 }
@@ -122,7 +122,7 @@ impl Flow for StaticExpressionEval {
             for value in tuple {
                 let typed_value = match value {
                     None => None,
-                    Some(value) => match value.eval(param_values) {
+                    Some(value) => match value.eval(param_values, &[]) {
                         Err(error) => return Err(error),
                         Ok(value) => Some(value),
                     },
@@ -248,13 +248,13 @@ impl InsertQueryPlan {
 
 pub struct Filter {
     source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
-    predicate: Option<DynamicTypedTree>,
+    predicate: Option<TypedTree>,
 }
 
 impl Filter {
     pub fn new(
         source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
-        predicate: Option<DynamicTypedTree>,
+        predicate: Option<TypedTree>,
     ) -> Box<Filter> {
         Box::new(Filter { source, predicate })
     }
@@ -400,17 +400,17 @@ impl DeleteQueryPlan {
 }
 
 pub struct Repeater {
-    source: Vec<Option<DynamicTypedTree>>,
+    source: Vec<Option<TypedTree>>,
 }
 
 impl Repeater {
-    pub fn new(source: Vec<Option<DynamicTypedTree>>) -> Box<Repeater> {
+    pub fn new(source: Vec<Option<TypedTree>>) -> Box<Repeater> {
         Box::new(Repeater { source })
     }
 }
 
 impl Flow for Repeater {
-    type Output = Vec<Option<DynamicTypedTree>>;
+    type Output = Vec<Option<TypedTree>>;
 
     fn next_tuple(&mut self, _param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         Ok(Some(self.source.clone()))
@@ -418,13 +418,13 @@ impl Flow for Repeater {
 }
 
 pub struct DynamicValues {
-    source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>,
+    source: Box<dyn Flow<Output = Vec<Option<TypedTree>>>>,
     records: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
 }
 
 impl DynamicValues {
     pub fn new(
-        source: Box<dyn Flow<Output = Vec<Option<DynamicTypedTree>>>>,
+        source: Box<dyn Flow<Output = Vec<Option<TypedTree>>>>,
         records: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
     ) -> Box<DynamicValues> {
         Box::new(DynamicValues { source, records })

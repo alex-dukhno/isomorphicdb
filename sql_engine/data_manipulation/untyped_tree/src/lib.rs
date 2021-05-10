@@ -49,13 +49,7 @@ impl ImplicitCastError {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum StaticUntypedItem {
-    Const(UntypedValue),
-    Param(usize),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum DynamicUntypedItem {
+pub enum UntypedItem {
     Const(UntypedValue),
     Param(usize),
     Column {
@@ -168,42 +162,29 @@ impl Display for UntypedValue {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-pub enum StaticUntypedTree {
+pub enum UntypedTree {
     UnOp {
         op: UnOperator,
-        item: Box<StaticUntypedTree>,
+        item: Box<UntypedTree>,
     },
     BiOp {
-        left: Box<StaticUntypedTree>,
+        left: Box<UntypedTree>,
         op: BiOperator,
-        right: Box<StaticUntypedTree>,
+        right: Box<UntypedTree>,
     },
-    Item(StaticUntypedItem),
+    Item(UntypedItem),
 }
 
-impl StaticUntypedTree {
+impl UntypedTree {
     pub fn kind(&self) -> Option<SqlTypeFamily> {
         match self {
-            StaticUntypedTree::UnOp { .. } => None,
-            StaticUntypedTree::BiOp { .. } => None,
-            StaticUntypedTree::Item(StaticUntypedItem::Const(value)) => value.kind(),
-            StaticUntypedTree::Item(StaticUntypedItem::Param(_)) => None,
+            UntypedTree::UnOp { .. } => None,
+            UntypedTree::BiOp { .. } => None,
+            UntypedTree::Item(UntypedItem::Const(value)) => value.kind(),
+            UntypedTree::Item(UntypedItem::Param(_)) => None,
+            UntypedTree::Item(UntypedItem::Column { sql_type, .. }) => Some(sql_type.family()),
         }
     }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum DynamicUntypedTree {
-    BiOp {
-        left: Box<DynamicUntypedTree>,
-        op: BiOperator,
-        right: Box<DynamicUntypedTree>,
-    },
-    UnOp {
-        op: UnOperator,
-        item: Box<DynamicUntypedTree>,
-    },
-    Item(DynamicUntypedItem),
 }
 
 #[cfg(test)]

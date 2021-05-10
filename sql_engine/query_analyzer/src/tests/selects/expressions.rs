@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree, UntypedValue};
+use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
 use super::*;
 
@@ -32,7 +32,7 @@ fn select_all_columns_from_table() {
         analyzer.analyze(select(SCHEMA, TABLE)),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+            projection_items: vec![UntypedTree::Item(UntypedItem::Column {
                 name: "col1".to_owned(),
                 index: 0,
                 sql_type: SqlType::integer()
@@ -62,7 +62,7 @@ fn select_specified_column_from_table() {
         )),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+            projection_items: vec![UntypedTree::Item(UntypedItem::Column {
                 name: "col1".to_owned(),
                 index: 0,
                 sql_type: SqlType::integer()
@@ -114,9 +114,9 @@ fn select_from_table_with_constant() {
         )),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                UntypedValue::Number(BigDecimal::from(1))
-            ))],
+            projection_items: vec![UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+                BigDecimal::from(1)
+            )))],
             filter: None
         }))
     );
@@ -142,7 +142,7 @@ fn select_parameters_from_a_table() {
         )),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![DynamicUntypedTree::Item(DynamicUntypedItem::Param(0))],
+            projection_items: vec![UntypedTree::Item(UntypedItem::Param(0))],
             filter: None
         }))
     );
@@ -150,7 +150,7 @@ fn select_parameters_from_a_table() {
 
 #[cfg(test)]
 mod multiple_values {
-    use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree, UntypedValue};
+    use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
     use super::*;
 
@@ -186,14 +186,14 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("1".to_owned())
-                    ))),
+                projection_items: vec![UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
+                        "1".to_owned()
+                    )))),
                     op: BiOperator::Arithmetic(BiArithmetic::Add),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::Number(BigDecimal::from(1))
-                    )))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    ))))
                 }],
                 filter: None
             }))
@@ -220,14 +220,14 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("str".to_owned())
-                    ))),
+                projection_items: vec![UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
+                        "str".to_owned()
+                    )))),
                     op: BiOperator::StringOp(Concat),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("str".to_owned())
-                    )))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
+                        "str".to_owned()
+                    ))))
                 }],
                 filter: None
             }))
@@ -254,14 +254,14 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("1".to_owned())
-                    ))),
+                projection_items: vec![UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
+                        "1".to_owned()
+                    )))),
                     op: BiOperator::Comparison(Comparison::Gt),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::Number(BigDecimal::from(1))
-                    )))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    ))))
                 }],
                 filter: None
             }))
@@ -288,14 +288,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
-                        Bool(true)
-                    )))),
+                projection_items: vec![UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(true))))),
                     op: BiOperator::Logical(BiLogical::And),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(
-                        Bool(true)
-                    )))),
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(true))))),
                 }],
                 filter: None
             }))
@@ -322,14 +318,14 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::Number(BigDecimal::from(1))
-                    ))),
+                projection_items: vec![UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    )))),
                     op: BiOperator::Bitwise(Bitwise::Or),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::Number(BigDecimal::from(1))
-                    )))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+                        BigDecimal::from(1)
+                    ))))
                 }],
                 filter: None
             }))
@@ -356,14 +352,14 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![DynamicUntypedTree::BiOp {
-                    left: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("s".to_owned())
-                    ))),
+                projection_items: vec![UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
+                        "s".to_owned()
+                    )))),
                     op: BiOperator::Matching(Matching::Like),
-                    right: Box::new(DynamicUntypedTree::Item(DynamicUntypedItem::Const(
-                        UntypedValue::String("str".to_owned())
-                    )))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
+                        "str".to_owned()
+                    ))))
                 }],
                 filter: None
             }))

@@ -19,10 +19,10 @@ mod constants;
 #[cfg(test)]
 mod operations;
 
-fn untyped_number(num: BigDecimal) -> StaticUntypedTree {
-    StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(num)))
+fn untyped_number(num: BigDecimal) -> UntypedTree {
+    UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(num)))
 }
 
-fn untyped_string(str: String) -> StaticUntypedTree {
-    StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(str)))
+fn untyped_string(str: String) -> UntypedTree {
+    UntypedTree::Item(UntypedItem::Const(UntypedValue::String(str)))
 }

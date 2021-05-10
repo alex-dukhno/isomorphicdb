@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{dynamic_tree_builder::DynamicTreeBuilder, static_tree_builder::StaticTreeBuilder};
+use crate::tree_builder::TreeBuilder;
 use catalog::CatalogHandler;
 use data_manipulation_untyped_queries::{
     UntypedDeleteQuery, UntypedInsertQuery, UntypedQuery, UntypedSelectQuery, UntypedUpdateQuery,
 };
-use data_manipulation_untyped_tree::{DynamicUntypedItem, DynamicUntypedTree};
+use data_manipulation_untyped_tree::{UntypedItem, UntypedTree};
 use definition::FullTableName;
 use query_ast::{
     Assignment, DeleteQuery, InsertQuery, InsertSource, Query, SelectItem, SelectQuery, UpdateQuery, Values,
@@ -26,8 +26,7 @@ use query_response::QueryError;
 use std::collections::HashMap;
 use storage::Transaction;
 
-mod dynamic_tree_builder;
-mod static_tree_builder;
+mod tree_builder;
 
 pub struct QueryAnalyzer<'a> {
     catalog: CatalogHandler<'a>,
@@ -84,7 +83,7 @@ impl<'a> QueryAnalyzer<'a> {
                                     for table_column in &table_columns {
                                         let value = match column_map.get(table_column) {
                                             Some(index) if index < &insert_row.len() => {
-                                                Some(StaticTreeBuilder::build_from(insert_row[*index].clone())?)
+                                                Some(TreeBuilder::static_tree(insert_row[*index].clone())?)
                                             }
                                             _ => None,
                                         };
@@ -139,12 +138,12 @@ impl<'a> QueryAnalyzer<'a> {
                             match temp_column_name {
                                 None => assignments.push(None),
                                 Some(value) => {
-                                    assignments.push(Some(DynamicTreeBuilder::build_from(value, &table_columns)?));
+                                    assignments.push(Some(TreeBuilder::dynamic_tree(value, &table_columns)?));
                                 }
                             }
                         }
                         let filter = match where_clause {
-                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
+                            Some(expr) => Some(TreeBuilder::dynamic_tree(expr, &table_columns)?),
                             None => None,
                         };
                         Ok(UntypedQuery::Update(UntypedUpdateQuery {
@@ -172,7 +171,7 @@ impl<'a> QueryAnalyzer<'a> {
                             match item {
                                 SelectItem::Wildcard => {
                                     for (index, table_column) in table_columns.iter().enumerate() {
-                                        projection_items.push(DynamicUntypedTree::Item(DynamicUntypedItem::Column {
+                                        projection_items.push(UntypedTree::Item(UntypedItem::Column {
                                             name: table_column.name().to_lowercase(),
                                             index,
                                             sql_type: table_column.sql_type(),
@@ -180,12 +179,12 @@ impl<'a> QueryAnalyzer<'a> {
                                     }
                                 }
                                 SelectItem::UnnamedExpr(expr) => {
-                                    projection_items.push(DynamicTreeBuilder::build_from(expr, &table_columns)?)
+                                    projection_items.push(TreeBuilder::dynamic_tree(expr, &table_columns)?)
                                 }
                             }
                         }
                         let filter = match where_clause {
-                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
+                            Some(expr) => Some(TreeBuilder::dynamic_tree(expr, &table_columns)?),
                             None => None,
                         };
                         Ok(UntypedQuery::Select(UntypedSelectQuery {
@@ -208,7 +207,7 @@ impl<'a> QueryAnalyzer<'a> {
                     Some(Some(table_info)) => {
                         let table_columns = table_info.columns();
                         let filter = match where_clause {
-                            Some(expr) => Some(DynamicTreeBuilder::build_from(expr, &table_columns)?),
+                            Some(expr) => Some(TreeBuilder::dynamic_tree(expr, &table_columns)?),
                             None => None,
                         };
                         Ok(UntypedQuery::Delete(UntypedDeleteQuery {
