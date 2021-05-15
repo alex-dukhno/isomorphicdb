@@ -25,4 +25,5 @@ members = [
     "data_repr",
     "types",
     "definition",
+    "self_driven/query_pre_processor",
 ]

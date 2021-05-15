@@ -1,0 +1,7 @@
+[package]
+name = "query_pre_processor"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+
+[dependencies]

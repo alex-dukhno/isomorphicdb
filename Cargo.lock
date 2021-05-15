@@ -1072,6 +1072,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "query_pre_processor"
+version = "0.1.0"
+
+[[package]]
 name = "query_processing"
 version = "0.1.0"
 dependencies = [
