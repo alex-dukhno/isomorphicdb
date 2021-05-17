@@ -129,7 +129,7 @@ dependencies = [
  "data_definition_execution_plan",
  "definition",
  "log",
- "rstest",
+ "rstest 0.10.0",
  "storage",
  "types",
 ]
@@ -285,7 +285,7 @@ dependencies = [
  "log",
  "query_ast",
  "regex",
- "rstest",
+ "rstest 0.9.0",
  "scalar",
  "types",
 ]
@@ -332,7 +332,7 @@ dependencies = [
  "data_manipulation_operators",
  "data_manipulation_query_result",
  "ordered-float",
- "rstest",
+ "rstest 0.9.0",
  "scalar",
  "types",
 ]
@@ -716,7 +716,7 @@ dependencies = [
  "query_processing",
  "rand",
  "rand_core",
- "rstest",
+ "rstest 0.10.0",
  "simple_logger",
  "storage",
  "types",
@@ -1057,7 +1057,7 @@ dependencies = [
  "postgres-parser",
  "query_ast",
  "query_response",
- "rstest",
+ "rstest 0.9.0",
 ]
 
 [[package]]
@@ -1206,6 +1206,19 @@ name = "rstest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c77c86a545c460cffcb2e5f558392e2e6a1edcc9d463cf092bf4ec3c7990641d"
+dependencies = [
+ "cfg-if",
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "syn",
+]
+
+[[package]]
+name = "rstest"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "041bb0202c14f6a158bbbf086afb03d0c6e975c2dec7d4912f8061ed44f290af"
 dependencies = [
  "cfg-if",
  "proc-macro2",
@@ -1412,9 +1425,9 @@ checksum = "1e81da0851ada1f3e9d4312c704aa4f8806f0f9d69faaf8df2f3464b4a9437c2"
 
 [[package]]
 name = "syn"
-version = "1.0.71"
+version = "1.0.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad184cc9470f9117b2ac6817bfe297307418819ba40552f9b3846f05c33d5373"
+checksum = "a1e8cdbefb79a9a5a65e0db8b47b723ee907b7c7f8496c76a1770b5c310bab82"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1550,7 +1563,7 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "query_ast",
- "rstest",
+ "rstest 0.10.0",
  "wire_protocol_payload",
 ]
 
