@@ -18,17 +18,13 @@ use data_manipulation_operators::Concat;
 #[test]
 fn string_and_string() {
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::String,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
-                "1".to_owned()
-            )))),
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("1".to_owned())))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
-                "2".to_owned()
-            )))),
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("2".to_owned())))),
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Ok(ScalarValue::String("12".to_owned()))
     );
 }
@@ -36,15 +32,13 @@ fn string_and_string() {
 #[test]
 fn string_and_boolean() {
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::Bool,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
-                "abc".to_owned()
-            )))),
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::String,
@@ -53,15 +47,13 @@ fn string_and_boolean() {
     );
 
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::Bool,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
-                "abc".to_owned()
-            )))),
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Bool,
@@ -73,18 +65,16 @@ fn string_and_boolean() {
 #[test]
 fn string_and_number() {
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::String,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(0),
                 type_family: SqlTypeFamily::Integer
             }))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
-                "abc".to_owned()
-            )))),
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Integer,
@@ -93,18 +83,16 @@ fn string_and_number() {
     );
 
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::String,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(
-                "abc".to_owned()
-            )))),
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(0),
                 type_family: SqlTypeFamily::Integer
             }))),
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::String,
@@ -116,13 +104,13 @@ fn string_and_number() {
 #[test]
 fn others() {
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::String,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(false)))),
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(false)))),
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Bool,
@@ -130,16 +118,16 @@ fn others() {
         ))
     );
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::String,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             }))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(false)))),
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(false)))),
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Integer,
@@ -147,16 +135,16 @@ fn others() {
         ))
     );
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::String,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true)))),
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             })))
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Bool,
@@ -165,19 +153,19 @@ fn others() {
     );
 
     assert_eq!(
-        StaticTypedTree::BiOp {
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::String,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             }))),
             op: BiOperator::StringOp(Concat),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             }))),
         }
-        .eval(&[]),
+        .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
             BiOperator::StringOp(Concat),
             SqlTypeFamily::Integer,

@@ -38,9 +38,9 @@ fn insert_number() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Number(BigDecimal::from(1))
-            )))]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+                BigDecimal::from(1)
+            ))))]],
         }))
     );
 }
@@ -61,9 +61,9 @@ fn insert_string() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::String("str".to_owned())
-            )))]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
+                "str".to_owned()
+            ))))]],
         }))
     );
 }
@@ -84,9 +84,9 @@ fn insert_boolean() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![boolean(true)]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Bool(Bool(true))
-            )))]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(
+                Bool(true)
+            ))))]],
         }))
     );
 }
@@ -107,9 +107,7 @@ fn insert_null() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Null
-            )))]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)))]],
         }))
     );
 }
@@ -158,8 +156,8 @@ fn insert_into_table_with_parameters() {
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(1)))
+                Some(UntypedTree::Item(UntypedItem::Param(0))),
+                Some(UntypedTree::Item(UntypedItem::Param(1)))
             ]],
         }))
     );
@@ -190,8 +188,8 @@ fn insert_into_table_with_parameters_and_values() {
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Param(0))),
-                Some(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                Some(UntypedTree::Item(UntypedItem::Param(0))),
+                Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
                     BigDecimal::from(1)
                 ))))
             ]],
@@ -215,16 +213,16 @@ fn insert_into_table_negative_number() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(StaticUntypedTree::Item(StaticUntypedItem::Const(
-                UntypedValue::Number(BigDecimal::from(-32768))
-            )))]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+                BigDecimal::from(-32768)
+            ))))]],
         }))
     );
 }
 
 #[cfg(test)]
 mod multiple_values {
-    use data_manipulation_untyped_tree::{StaticUntypedItem, StaticUntypedTree, UntypedValue};
+    use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
     use super::*;
 
@@ -260,12 +258,12 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: BiOperator::Arithmetic(BiArithmetic::Add),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
                 })]],
@@ -294,12 +292,12 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     )))),
                     op: BiOperator::StringOp(Concat),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     ))))
                 })]],
@@ -327,12 +325,12 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: BiOperator::Comparison(Comparison::Gt),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
                 })]],
@@ -360,14 +358,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
-                        Bool(true)
-                    )))),
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(true))))),
                     op: BiOperator::Logical(BiLogical::And),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(
-                        Bool(true)
-                    )))),
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(true))))),
                 })]],
             }))
         );
@@ -394,12 +388,12 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     )))),
                     op: BiOperator::Bitwise(Bitwise::Or),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
                         BigDecimal::from(1)
                     ))))
                 })]],
@@ -427,12 +421,12 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(StaticUntypedTree::BiOp {
-                    left: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
                         "s".to_owned()
                     )))),
                     op: BiOperator::Matching(Matching::Like),
-                    right: Box::new(StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
                         "str".to_owned()
                     ))))
                 })]],

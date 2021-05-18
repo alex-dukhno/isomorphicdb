@@ -13,16 +13,15 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, FromPrimitive};
-use data_manipulation_typed_tree::{DynamicTypedItem, DynamicTypedTree, StaticTypedItem, StaticTypedTree, TypedValue};
-use data_manipulation_untyped_tree::{
-    DynamicUntypedItem, DynamicUntypedTree, StaticUntypedItem, StaticUntypedTree, UntypedValue,
-};
+use data_manipulation_typed_tree::{TypedItem, TypedTree, TypedValue};
+use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 use std::ops::RangeInclusive;
 use types::{Bool, SqlTypeFamily};
 
 pub struct TypeInference {
     small_int_range: RangeInclusive<BigDecimal>,
     integer_range: RangeInclusive<BigDecimal>,
+    #[allow(dead_code)]
     big_int_range: RangeInclusive<BigDecimal>,
     real_range: RangeInclusive<BigDecimal>,
     double_precision_range: RangeInclusive<BigDecimal>,
@@ -41,163 +40,83 @@ impl Default for TypeInference {
 }
 
 impl TypeInference {
-    pub fn infer_dynamic(&self, tree: DynamicUntypedTree, param_types: &[SqlTypeFamily]) -> DynamicTypedTree {
+    pub fn infer_type(&self, tree: UntypedTree, param_types: &[SqlTypeFamily]) -> TypedTree {
         match tree {
-            DynamicUntypedTree::Item(DynamicUntypedItem::Param(index)) => {
-                DynamicTypedTree::Item(DynamicTypedItem::Param {
-                    index,
-                    type_family: Some(param_types[index]),
-                })
-            }
-            DynamicUntypedTree::Item(DynamicUntypedItem::Column { name, sql_type, index }) => {
-                DynamicTypedTree::Item(DynamicTypedItem::Column {
-                    name,
-                    sql_type: sql_type.family(),
-                    index,
-                })
-            }
-            DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Number(num))) => {
-                if num.is_integer() {
-                    if self.small_int_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
-                            value: num,
-                            type_family: SqlTypeFamily::SmallInt,
-                        }))
-                    } else if self.integer_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
-                            value: num,
-                            type_family: SqlTypeFamily::Integer,
-                        }))
-                    } else if self.big_int_range.contains(&num) {
-                        DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
-                            value: num,
-                            type_family: SqlTypeFamily::BigInt,
-                        }))
-                    } else {
-                        unimplemented!()
-                    }
-                } else if self.real_range.contains(&num) {
-                    DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
-                        value: num,
-                        type_family: SqlTypeFamily::Real,
-                    }))
-                } else if self.double_precision_range.contains(&num) {
-                    DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Num {
-                        value: num,
-                        type_family: SqlTypeFamily::Double,
-                    }))
-                } else {
-                    unimplemented!()
-                }
-            }
-            DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::String(str))) => {
-                DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::String(str)))
-            }
-            DynamicUntypedTree::Item(DynamicUntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
-                DynamicTypedTree::Item(DynamicTypedItem::Const(TypedValue::Bool(boolean)))
-            }
-            DynamicUntypedTree::BiOp { left, op, right } => {
-                log::debug!("LEFT TREE {:#?}", left);
-                log::debug!("RIGHT TREE {:#?}", right);
-                let left_tree = self.infer_dynamic(*left, param_types);
-                let right_tree = self.infer_dynamic(*right, param_types);
-                let type_family = match (left_tree.type_family(), right_tree.type_family()) {
-                    (Some(left_type_family), Some(right_type_family)) => {
-                        match left_type_family.compare(&right_type_family) {
-                            Ok(type_family) => type_family,
-                            Err(_) => unimplemented!(),
-                        }
-                    }
-                    (Some(left_type_family), None) => left_type_family,
-                    (None, Some(right_type_family)) => right_type_family,
-                    (None, None) => unimplemented!(),
-                };
-                DynamicTypedTree::BiOp {
-                    type_family,
-                    left: Box::new(left_tree),
-                    op,
-                    right: Box::new(right_tree),
-                }
-            }
-            DynamicUntypedTree::UnOp { op, item } => DynamicTypedTree::UnOp {
-                op,
-                item: Box::new(self.infer_dynamic(*item, param_types)),
-            },
-            _ => unimplemented!(),
-        }
-    }
-
-    pub fn infer_static(&self, tree: StaticUntypedTree, param_types: &[SqlTypeFamily]) -> StaticTypedTree {
-        match tree {
-            StaticUntypedTree::BiOp { left, op, right } => {
-                let left_tree = self.infer_static(*left, param_types);
-                let right_tree = self.infer_static(*right, param_types);
-                let type_family = match (left_tree.type_family(), right_tree.type_family()) {
-                    (Some(left_type_family), Some(right_type_family)) => {
-                        match left_type_family.compare(&right_type_family) {
-                            Ok(type_family) => type_family,
-                            Err(_) => unimplemented!(),
-                        }
-                    }
-                    (Some(left_type_family), None) => left_type_family,
-                    (None, Some(right_type_family)) => right_type_family,
-                    (None, None) => unimplemented!(),
-                };
-                StaticTypedTree::BiOp {
-                    type_family,
-                    left: Box::new(left_tree),
-                    op,
-                    right: Box::new(right_tree),
-                }
-            }
-            StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Number(num))) => {
-                log::trace!("NUM {:?}", num);
-                if num.is_integer() {
-                    if self.small_int_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                            value: num,
-                            type_family: SqlTypeFamily::SmallInt,
-                        }))
-                    } else if self.integer_range.contains(&num) {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                            value: num,
-                            type_family: SqlTypeFamily::Integer,
-                        }))
-                    } else {
-                        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                            value: num,
-                            type_family: SqlTypeFamily::BigInt,
-                        }))
-                    }
-                } else if self.real_range.contains(&num) {
-                    StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                        value: num,
-                        type_family: SqlTypeFamily::Real,
-                    }))
-                } else if self.double_precision_range.contains(&num) {
-                    StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
-                        value: num,
-                        type_family: SqlTypeFamily::Double,
-                    }))
-                } else {
-                    unimplemented!()
-                }
-            }
-            StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::String(str))) => {
-                StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String(str)))
-            }
-            StaticUntypedTree::Item(StaticUntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
-                StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(boolean)))
-            }
-            StaticUntypedTree::Item(StaticUntypedItem::Param(index)) => StaticTypedTree::Item(StaticTypedItem::Param {
+            UntypedTree::Item(UntypedItem::Param(index)) => TypedTree::Item(TypedItem::Param {
                 index,
                 type_family: Some(param_types[index]),
             }),
-            StaticUntypedTree::Item(_) => unimplemented!(),
-            StaticUntypedTree::UnOp { op, item } => StaticTypedTree::UnOp {
+            UntypedTree::Item(UntypedItem::Column { name, sql_type, index }) => TypedTree::Item(TypedItem::Column {
+                name,
+                sql_type: sql_type.family(),
+                index,
+            }),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(num))) => {
+                if num.is_integer() {
+                    if self.small_int_range.contains(&num) {
+                        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::SmallInt,
+                        }))
+                    } else if self.integer_range.contains(&num) {
+                        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::Integer,
+                        }))
+                    } else {
+                        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                            value: num,
+                            type_family: SqlTypeFamily::BigInt,
+                        }))
+                    }
+                } else if self.real_range.contains(&num) {
+                    TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                        value: num,
+                        type_family: SqlTypeFamily::Real,
+                    }))
+                } else if self.double_precision_range.contains(&num) {
+                    TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                        value: num,
+                        type_family: SqlTypeFamily::Double,
+                    }))
+                } else {
+                    unimplemented!()
+                }
+            }
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::String(str))) => {
+                TypedTree::Item(TypedItem::Const(TypedValue::String(str)))
+            }
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
+                TypedTree::Item(TypedItem::Const(TypedValue::Bool(boolean)))
+            }
+            UntypedTree::BiOp { left, op, right } => {
+                log::debug!("LEFT TREE {:#?}", left);
+                log::debug!("RIGHT TREE {:#?}", right);
+                let left_tree = self.infer_type(*left, param_types);
+                let right_tree = self.infer_type(*right, param_types);
+                let type_family = match (left_tree.type_family(), right_tree.type_family()) {
+                    (Some(left_type_family), Some(right_type_family)) => {
+                        match left_type_family.compare(&right_type_family) {
+                            Ok(type_family) => type_family,
+                            Err(_) => unimplemented!(),
+                        }
+                    }
+                    (Some(left_type_family), None) => left_type_family,
+                    (None, Some(right_type_family)) => right_type_family,
+                    (None, None) => unimplemented!(),
+                };
+                TypedTree::BiOp {
+                    type_family,
+                    left: Box::new(left_tree),
+                    op,
+                    right: Box::new(right_tree),
+                }
+            }
+            UntypedTree::UnOp { op, item } => TypedTree::UnOp {
                 op,
-                item: Box::new(self.infer_static(*item, param_types)),
+                item: Box::new(self.infer_type(*item, param_types)),
             },
+            _ => unimplemented!(),
         }
     }
 }

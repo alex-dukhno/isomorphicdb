@@ -12,33 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
+use data_manipulation_typed_tree::TypedTree;
 use definition::FullTableName;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedInsertQuery {
     pub full_table_name: FullTableName,
-    pub values: Vec<Vec<Option<StaticTypedTree>>>,
+    pub values: Vec<Vec<Option<TypedTree>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedDeleteQuery {
     pub full_table_name: FullTableName,
-    pub filter: Option<DynamicTypedTree>,
+    pub filter: Option<TypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedUpdateQuery {
     pub full_table_name: FullTableName,
-    pub assignments: Vec<Option<DynamicTypedTree>>,
-    pub filter: Option<DynamicTypedTree>,
+    pub assignments: Vec<Option<TypedTree>>,
+    pub filter: Option<TypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedSelectQuery {
     pub full_table_name: FullTableName,
-    pub projection_items: Vec<DynamicTypedTree>,
-    pub filter: Option<DynamicTypedTree>,
+    pub projection_items: Vec<TypedTree>,
+    pub filter: Option<TypedTree>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
