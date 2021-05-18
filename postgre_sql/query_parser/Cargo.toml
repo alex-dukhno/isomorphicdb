@@ -13,4 +13,4 @@ postgres-parser = "0.2"
 log = "0.4.14"
 
 [dev-dependencies]
-rstest = "0.9.0"
+rstest = "0.10.0"
