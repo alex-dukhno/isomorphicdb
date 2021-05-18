@@ -280,6 +280,26 @@ select * from test limit 1.49;
 ---+----+----
  1 |  2 |  1
 (1 row)
+
+select * from numbers limit '3.9';
+ERROR:  22P02: invalid input syntax for type bigint: "3.9"
+LINE 1: select * from numbers limit '3.9';
+                                    ^
+postgres=# select * from numbers limit 2.1;
+col_si | col_i | col_bi
+--------+-------+--------
+    100 |   100 |    100
+    100 |   100 |    100
+(2 rows)
+
+select * from numbers limit '3' + 0.9;
+col_si | col_i | col_bi
+--------+-------+--------
+    100 |   100 |    100
+    100 |   100 |    100
+      1 |     2 |      3
+      1 |     2 |      3
+(4 rows)
 ```
 
 <!--
@@ -288,6 +308,40 @@ Audience: end-users, contributors, wondering developers :)
 -->
 
 # Technical design
+
+Evaluation expression tree could be very simple for example, in SQL query:
+
+```sql
+insert into table_1 values (3);
+```
+
+It contains only single node and could be depicted as:
+
+```text
++---+
+| 3 |
++---+
+```
+
+Also, it could involve several levels like in the query:
+
+```sql
+insert into table_1 values (1 + 2 * 3);
+```
+
+It will have three levels:
+
+```text
+       +---+              
+  +----| + |----+         
+  v    +---+    v         
++---+         +---+       
+| 1 |    +----| * |----+  
++---+    v    +---+    v  
+       +---+         +---+
+       | 2 |         | 3 |
+       +---+         +---+
+```
 
 
 
