@@ -23,13 +23,13 @@ Possibly it impacts `extended query protocol` and future research for workloads 
 PostgreSQL converts implicitly string into number if one of the parameter is a number
 
 ```sql
-postgres=# select 1 + '1';
+select 1 + '1';
  ?column?
 ----------
         2
 (1 row)
 
-postgres=# select '1' + 1;
+select '1' + 1;
 ?column?
 ----------
         2
@@ -39,7 +39,7 @@ postgres=# select '1' + 1;
 However, fails when both of them are literals
 
 ```sql
-postgres=# select '1' + '1';
+select '1' + '1';
 ERROR:  42725: operator is not unique: unknown + unknown
 LINE 1: select '1' + '1';
                    ^
@@ -51,12 +51,12 @@ HINT:  Could not choose a best candidate operator. You might need to add explici
 Implicit and explicit cast of string literals give same results:
 
 ```sql
-postgres=# select 1 + 'abc';
+select 1 + 'abc';
 ERROR:  22P02: invalid input syntax for type integer: "abc"
 LINE 1: select 1 + 'abc';
                    ^
 
-postgres=# select 1 + cast('abc' as int);
+select 1 + cast('abc' as int);
 ERROR:  22P02: invalid input syntax for type integer: "abc"
 LINE 1: select 1 + cast('abc' as int);
 ```
@@ -66,13 +66,13 @@ LINE 1: select 1 + cast('abc' as int);
 Date literals and numbers works with explicit cast. Implicit cast is not supported for date literals in any position.
 
 ```sql
-postgres=# select 1 + cast('2021-01-01' as date);
+select 1 + cast('2021-01-01' as date);
 ?column?
 ------------
  2021-01-02
 (1 row)
 
-postgres=# select 1 + '2021-01-01';
+select 1 + '2021-01-01';
 ERROR:  22P02: invalid input syntax for type integer: "2021-01-01"
 LINE 1: select 1 + '2021-01-01';
                    ^
@@ -81,13 +81,13 @@ LINE 1: select 1 + '2021-01-01';
 Subtraction works only if number is the second argument
 
 ```sql
-postgres=# select 1 - cast('2021-01-01' as date);
+select 1 - cast('2021-01-01' as date);
 ERROR:  42883: operator does not exist: integer - date
 LINE 1: select 1 - cast('2021-01-01' as date);
                  ^
 HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
 
-postgres=# select cast('2021-01-01' as date) - 1;
+select cast('2021-01-01' as date) - 1;
   ?column?
 ------------
  2020-12-31
@@ -102,7 +102,7 @@ Other arithmetic operations are not supported
 Operations of timestamps and numbers are not supported with neither implicit nor explicit casts.
 
 ```sql
-postgres=# select cast('2021-05-16 12:24:07' as timestamp) + 1;
+select cast('2021-05-16 12:24:07' as timestamp) + 1;
 ERROR:  42883: operator does not exist: timestamp without time zone + integer
 LINE 1: select cast('2021-05-16 12:24:07' as timestamp) + 1;
                                                         ^
@@ -114,7 +114,7 @@ HINT:  No operator matches the given name and argument types. You might need to 
 Operations of time and numbers are not supported with neither implicit nor explicit casts.
 
 ```sql
-postgres=# select cast('12:24:07' as time) + 1;
+select cast('12:24:07' as time) + 1;
 ERROR:  42883: operator does not exist: time without time zone + integer
 LINE 1: select cast('12:24:07' as time) + 1;
                                         ^
@@ -126,13 +126,13 @@ HINT:  No operator matches the given name and argument types. You might need to 
 PostgreSQL does not convert implicitly boolean to numbers, however, explicit cast helps
 
 ```sql
-postgres=# select 1 + true;
+select 1 + true;
 ERROR:  42883: operator does not exist: integer + boolean
 LINE 1: select 1 + true;
                  ^
 HINT:  No operator matches the given name and argument types. You might need to add explicit type casts.
 
-postgres=# select 1 + cast(true as int);
+select 1 + cast(true as int);
  ?column?
 ----------
         2
@@ -144,28 +144,28 @@ postgres=# select 1 + cast(true as int);
 Numeric literal implicitly has `integer` type unless first parameter is in a `bigint` range.
 
 ```sql
-postgres=# select 32767 + 2147483647;
+select 32767 + 2147483647;
 ERROR:  22003: integer out of range
 
-postgres=# select 32767 + 32767;
+select 32767 + 32767;
  ?column?
 ----------
     65534
 (1 row)
 
-postgres=# select pg_typeof(32767 + 32767);
+select pg_typeof(32767 + 32767);
 pg_typeof
 -----------
 integer
 (1 row)
 
-postgres=# select 9223372036854775 + 2147483647;
+select 9223372036854775 + 2147483647;
 ?column?
 ------------------
  9223374184338422
 (1 row)
 
-postgres=# select pg_typeof(9223372036854775 + 2147483647);
+select pg_typeof(9223372036854775 + 2147483647);
 pg_typeof
 -----------
 bigint
@@ -175,7 +175,7 @@ bigint
 Number literals with floating-point explicitly converted into `numeric` type
 
 ```sql
-postgres=# select pg_typeof(123.123);
+select pg_typeof(123.123);
  pg_typeof
 -----------
  numeric
@@ -187,7 +187,7 @@ postgres=# select pg_typeof(123.123);
 Supported only for integer types.
 
 ```sql
-postgres=# select 1 & true;
+select 1 & true;
 ERROR:  42883: operator does not exist: integer & boolean
 LINE 1: select 1 & true;
                  ^
@@ -195,14 +195,14 @@ HINT:  No operator matches the given name and argument types. You might need to 
 ```
 
 ```sql
-postgres=# select 1 & 'true';
+select 1 & 'true';
 ERROR:  22P02: invalid input syntax for type integer: "true"
 LINE 1: select 1 & 'true';
                    ^
 ```
 
 ```sql
-postgres=# select 1 & 1.2;
+select 1 & 1.2;
 ERROR:  42883: operator does not exist: integer & numeric
 LINE 1: select 1 & 1.2;
                  ^
@@ -210,7 +210,7 @@ HINT:  No operator matches the given name and argument types. You might need to 
 ```
 
 ```sql
-postgres=# select 1 & cast('2021-01-01' as date);
+select 1 & cast('2021-01-01' as date);
 ERROR:  42883: operator does not exist: integer & date
 LINE 1: select 1 & cast('2021-01-01' as date);
                  ^
@@ -218,7 +218,7 @@ HINT:  No operator matches the given name and argument types. You might need to 
 ```
 
 ```sql
-postgres=# select 1 & '12:00:00'::time;
+select 1 & '12:00:00'::time;
 ERROR:  42883: operator does not exist: integer & time without time zone
 LINE 1: select 1 & '12:00:00'::time;
                  ^
@@ -226,7 +226,7 @@ HINT:  No operator matches the given name and argument types. You might need to 
 ```
 
 ```sql
-postgres=# select 1 & '2021-01-01 12:00:00'::timestamp;
+select 1 & '2021-01-01 12:00:00'::timestamp;
 ERROR:  42883: operator does not exist: integer & timestamp without time zone
 LINE 1: select 1 & '2021-01-01 12:00:00'::timestamp;
                  ^
@@ -236,7 +236,7 @@ HINT:  No operator matches the given name and argument types. You might need to 
 ### Date, Time and Intervals
 
 ```sql
-postgres=# select '2020-01-01'::date + '12:00:00'::time;
+select '2020-01-01'::date + '12:00:00'::time;
       ?column?
 ---------------------
  2020-01-01 12:00:00
@@ -244,13 +244,13 @@ postgres=# select '2020-01-01'::date + '12:00:00'::time;
 ```
 
 ```sql
-postgres=# select '2020-01-01'::date + interval '1 day';
+select '2020-01-01'::date + interval '1 day';
       ?column?
 ---------------------
  2020-01-02 00:00:00
 (1 row)
 
-postgres=# select '2020-01-01'::date + interval '1 year';
+select '2020-01-01'::date + interval '1 year';
       ?column?
 ---------------------
  2021-01-01 00:00:00
@@ -262,20 +262,20 @@ postgres=# select '2020-01-01'::date + interval '1 year';
 Limit supports integer and floating-point numbers
 
 ```sql
-postgres=# select * from test limit 1;
+select * from test limit 1;
  i | i2 | i3
 ---+----+----
  1 |  2 |  1
 (1 row)
 
-postgres=# select * from test limit 1.5;
+select * from test limit 1.5;
  i | i2 | i3
 ---+----+----
  1 |  2 |  1
  1 |  1 |  2
 (2 rows)
 
-postgres=# select * from test limit 1.49;
+select * from test limit 1.49;
  i | i2 | i3
 ---+----+----
  1 |  2 |  1
