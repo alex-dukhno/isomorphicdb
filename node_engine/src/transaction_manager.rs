@@ -112,7 +112,7 @@ impl<'t> TransactionContext<'t> {
     ) -> Result<TypedQuery, QueryError> {
         match untyped_query {
             UntypedQuery::Insert(insert) => {
-                let type_checked = insert
+                let type_coerced = insert
                     .values
                     .into_iter()
                     .map(|values| {
@@ -125,19 +125,15 @@ impl<'t> TransactionContext<'t> {
                         values
                             .into_iter()
                             .map(|value| value.map(|v| self.type_checker.type_check(v)))
-                            .collect()
+                            .collect::<Vec<Option<TypedTree>>>()
                     })
-                    .collect::<Vec<Vec<Option<TypedTree>>>>();
-
-                let type_coerced = type_checked
-                    .into_iter()
                     .map(|values| {
                         values
                             .into_iter()
                             .map(|value| value.map(|c| self.type_coercion.coerce(c)))
                             .collect()
                     })
-                    .collect();
+                    .collect::<Vec<Vec<Option<TypedTree>>>>();
                 Ok(TypedQuery::Insert(TypedInsertQuery {
                     full_table_name: insert.full_table_name,
                     values: type_coerced,
@@ -218,7 +214,7 @@ impl<'t> TransactionContext<'t> {
     pub fn process(&self, query: Query, param_types: Vec<SqlTypeFamily>) -> Result<TypedQuery, QueryError> {
         match self.query_analyzer.analyze(query)? {
             UntypedQuery::Insert(insert) => {
-                let type_checked = insert
+                let type_coerced = insert
                     .values
                     .into_iter()
                     .map(|values| {
@@ -231,12 +227,8 @@ impl<'t> TransactionContext<'t> {
                         values
                             .into_iter()
                             .map(|value| value.map(|v| self.type_checker.type_check(v)))
-                            .collect()
+                            .collect::<Vec<Option<TypedTree>>>()
                     })
-                    .collect::<Vec<Vec<Option<TypedTree>>>>();
-
-                let type_coerced = type_checked
-                    .into_iter()
                     .map(|values| {
                         values
                             .into_iter()
