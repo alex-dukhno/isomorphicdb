@@ -12,16 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_typed_tree::{DynamicTypedTree, StaticTypedTree};
+use data_manipulation_typed_tree::TypedTree;
 
 pub struct TypeChecker;
 
 impl TypeChecker {
-    pub fn check_dynamic(&self, tree: DynamicTypedTree) -> DynamicTypedTree {
-        tree
-    }
-
-    pub fn check_static(&self, tree: StaticTypedTree) -> StaticTypedTree {
+    pub fn type_check(&self, tree: TypedTree) -> TypedTree {
         tree
     }
 }

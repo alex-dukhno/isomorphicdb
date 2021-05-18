@@ -18,16 +18,16 @@ use data_manipulation_operators::{BiArithmetic, BiOperator, UnArithmetic, UnOper
 #[test]
 fn negate_number() {
     let type_inference = TypeInference::default();
-    let untyped_tree = StaticUntypedTree::UnOp {
+    let untyped_tree = UntypedTree::UnOp {
         op: UnOperator::Arithmetic(UnArithmetic::Neg),
         item: Box::new(untyped_number(BigDecimal::from(2))),
     };
 
     assert_eq!(
-        type_inference.infer_static(untyped_tree, &[]),
-        StaticTypedTree::UnOp {
+        type_inference.infer_type(untyped_tree, &[]),
+        TypedTree::UnOp {
             op: UnOperator::Arithmetic(UnArithmetic::Neg),
-            item: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(2),
                 type_family: SqlTypeFamily::SmallInt
             })))
@@ -38,22 +38,22 @@ fn negate_number() {
 #[test]
 fn add_same_types() {
     let type_inference = TypeInference::default();
-    let untyped_tree = StaticUntypedTree::BiOp {
+    let untyped_tree = UntypedTree::BiOp {
         left: Box::new(untyped_number(BigDecimal::from(1))),
         op: BiOperator::Arithmetic(BiArithmetic::Add),
         right: Box::new(untyped_number(BigDecimal::from(2))),
     };
 
     assert_eq!(
-        type_inference.infer_static(untyped_tree, &[]),
-        StaticTypedTree::BiOp {
+        type_inference.infer_type(untyped_tree, &[]),
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::SmallInt,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(1),
                 type_family: SqlTypeFamily::SmallInt
             }))),
             op: BiOperator::Arithmetic(BiArithmetic::Add),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(2),
                 type_family: SqlTypeFamily::SmallInt
             })))
@@ -64,22 +64,22 @@ fn add_same_types() {
 #[test]
 fn add_different_types() {
     let type_inference = TypeInference::default();
-    let untyped_tree = StaticUntypedTree::BiOp {
+    let untyped_tree = UntypedTree::BiOp {
         left: Box::new(untyped_number(BigDecimal::from(i64::MAX - i32::MAX as i64))),
         op: BiOperator::Arithmetic(BiArithmetic::Add),
         right: Box::new(untyped_number(BigDecimal::from(2))),
     };
 
     assert_eq!(
-        type_inference.infer_static(untyped_tree, &[]),
-        StaticTypedTree::BiOp {
+        type_inference.infer_type(untyped_tree, &[]),
+        TypedTree::BiOp {
             type_family: SqlTypeFamily::BigInt,
-            left: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from((i64::MAX - i32::MAX as i64) as u64),
                 type_family: SqlTypeFamily::BigInt
             }))),
             op: BiOperator::Arithmetic(BiArithmetic::Add),
-            right: Box::new(StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
                 value: BigDecimal::from(2),
                 type_family: SqlTypeFamily::SmallInt
             })))

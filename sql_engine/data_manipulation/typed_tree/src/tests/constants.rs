@@ -17,11 +17,11 @@ use super::*;
 #[test]
 fn small_int() {
     assert_eq!(
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        TypedTree::Item(TypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::SmallInt,
         }))
-        .eval(&[]),
+        .eval(&[], &[]),
         Ok(ScalarValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::SmallInt
@@ -32,11 +32,11 @@ fn small_int() {
 #[test]
 fn integer() {
     assert_eq!(
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        TypedTree::Item(TypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::Integer,
         }))
-        .eval(&[]),
+        .eval(&[], &[]),
         Ok(ScalarValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::Integer
@@ -47,11 +47,11 @@ fn integer() {
 #[test]
 fn big_int() {
     assert_eq!(
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Num {
+        TypedTree::Item(TypedItem::Const(TypedValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::BigInt,
         }))
-        .eval(&[]),
+        .eval(&[], &[]),
         Ok(ScalarValue::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::BigInt
@@ -62,7 +62,7 @@ fn big_int() {
 #[test]
 fn bool() {
     assert_eq!(
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::Bool(true))).eval(&[]),
+        TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))).eval(&[], &[]),
         Ok(ScalarValue::Bool(true))
     );
 }
@@ -70,7 +70,7 @@ fn bool() {
 #[test]
 fn string() {
     assert_eq!(
-        StaticTypedTree::Item(StaticTypedItem::Const(TypedValue::String("str".to_owned()))).eval(&[]),
+        TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned()))).eval(&[], &[]),
         Ok(ScalarValue::String("str".to_owned()))
     );
 }
