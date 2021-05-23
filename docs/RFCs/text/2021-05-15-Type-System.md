@@ -1,7 +1,7 @@
  * Feature Name: Type System
  * Authors: Alex Dukhno (@alex-dukhno)
- * RFC PR: (PR # after acceptance of initial draft)
- * RFC Tracking Issue: Issue # after merging of RFC
+ * RFC PR: [#595](https://github.com/alex-dukhno/isomorphicdb/pull/595)
+ * RFC Tracking Issue: [#598](https://github.com/alex-dukhno/isomorphicdb/issues/598)
 
 # Summary
 
