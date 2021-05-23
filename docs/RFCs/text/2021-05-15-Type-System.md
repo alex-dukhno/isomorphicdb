@@ -516,7 +516,7 @@ Audience: end-users, contributors, wondering developers :)
 
 # Technical design
 
-## How expression tree could look like during different phases
+## Expression trees
 
 Evaluation expression tree could be very simple for example, in SQL query:
 
@@ -834,24 +834,31 @@ Audience: end-users, contributors, wondering developers :)
 
 # Drawbacks
 
+Not found
+
+<!--
 There is no silver bullet. Describe here possible disadvantages of described design and what possible tradeoffs.
+-->
 
 # Alternatives
 
+None
+
+<!--
 * Is there another way to have things around? :)
 * Can we have another designs what their pros and cons?
-
-# State of the Art
-
-Here you can link papers, other databases feature descriptions or RFCs to help others to get broader understanding of
-problem space, and the design described in the RFC.
+-->
 
 # Unresolved questions
 
+None
+
+<!--
 Do you have any questions before considering merging this RFC?
+-->
 
 # Future possibilities
 
-This is a place where you can write your ideas that are related to the RFC but out of it scope. 
-If you don't have any don't bother too much about that and left it blank. Anyway RFCs reviewers would probably give you 
-a hint :)
+Type resolution for parameters in `prepared statement`s and in queries with `extended query protocol`. Type system 
+allows implementing more advance SQL operators which in turn opens up door for query processing for a workload
+forecasting.
