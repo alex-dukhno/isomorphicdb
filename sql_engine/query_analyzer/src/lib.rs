@@ -43,7 +43,6 @@ impl<'a> From<Transaction<'a>> for QueryAnalyzer<'a> {
 impl<'a> QueryAnalyzer<'a> {
     pub fn analyze(&self, query: Query) -> Result<UntypedQuery, AnalysisError> {
         match query {
-            Query::None => unimplemented!("whatever"),
             Query::Insert(InsertQuery {
                 schema_name,
                 table_name,

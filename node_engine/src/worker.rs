@@ -19,7 +19,7 @@ use crate::{
 };
 use data_repr::scalar::ScalarValue;
 use postgre_sql::{
-    query_ast::{Query, Request, Statement, Transaction},
+    query_ast::{Request, Statement, Transaction},
     query_parser::QueryParser,
     query_response::{QueryError, QueryEvent},
     wire_protocol::{
@@ -126,14 +126,7 @@ impl Worker {
                                                     txn_state.is_none(),
                                                     "transaction state should be implicit"
                                                 );
-                                                query_plan_cache.save_parsed(
-                                                    statement_name,
-                                                    sql,
-                                                    Query::None,
-                                                    param_types,
-                                                );
-                                                txn_state = Some(transaction_manager.start_transaction());
-                                                connection.send(OutboundMessage::TransactionBegin).unwrap();
+                                                unimplemented!()
                                             }
                                             Transaction::Commit => {
                                                 debug_assert!(

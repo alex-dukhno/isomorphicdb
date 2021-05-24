@@ -90,7 +90,6 @@ pub enum ObjectType {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Query {
-    None,
     Insert(InsertQuery),
     Update(UpdateQuery),
     Delete(DeleteQuery),

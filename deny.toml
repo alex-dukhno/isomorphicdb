@@ -12,10 +12,6 @@ allow = [
     "ISC",
     "PostgreSQL"
 ]
-exceptions = [
-    # used by simple_logger
-    { allow = ["MPL-2.0"], name = "colored" },
-]
 
 [sources]
 unknown-git = "deny"
