@@ -110,21 +110,14 @@ impl TreeBuilder {
             Value::Int(num) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(num))),
             Value::String(string) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(string))),
             Value::Null => UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)),
+            Value::Number(num) if num.contains('.') => {
+                UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from_str(&num).unwrap())))
+            }
             Value::Number(num) => {
-                if !num.contains(".") {
-                    if num.starts_with("-") {
-                        if num.len() < MIN_BIG_INT.len() || num.len() == MIN_BIG_INT.len() && num.as_str() <= MIN_BIG_INT {
-                            UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(num.parse().unwrap())))
-                        } else {
-                            UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from_str(&num).unwrap())))
-                        }
-                    } else {
-                        if num.len() < MAX_BIG_INT.len() || num.len() == MAX_BIG_INT.len() && num.as_str() <= MAX_BIG_INT {
-                            UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(num.parse().unwrap())))
-                        } else {
-                            UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from_str(&num).unwrap())))
-                        }
-                    }
+                if (num.starts_with('-') && num.len() < MIN_BIG_INT.len() || num.len() == MIN_BIG_INT.len() && num.as_str() <= MIN_BIG_INT)
+                    || (num.len() < MAX_BIG_INT.len() || num.len() == MAX_BIG_INT.len() && num.as_str() <= MAX_BIG_INT)
+                {
+                    UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(num.parse().unwrap())))
                 } else {
                     UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from_str(&num).unwrap())))
                 }
