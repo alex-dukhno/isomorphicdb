@@ -83,24 +83,18 @@ impl TypeInference {
                     unimplemented!()
                 }
             }
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::String(str))) => {
-                TypedTree::Item(TypedItem::Const(TypedValue::String(str)))
-            }
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => {
-                TypedTree::Item(TypedItem::Const(TypedValue::Bool(boolean)))
-            }
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(str))) => TypedTree::Item(TypedItem::Const(TypedValue::String(str))),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => TypedTree::Item(TypedItem::Const(TypedValue::Bool(boolean))),
             UntypedTree::BiOp { left, op, right } => {
                 log::debug!("LEFT TREE {:#?}", left);
                 log::debug!("RIGHT TREE {:#?}", right);
                 let left_tree = self.infer_type(*left, param_types);
                 let right_tree = self.infer_type(*right, param_types);
                 let type_family = match (left_tree.type_family(), right_tree.type_family()) {
-                    (Some(left_type_family), Some(right_type_family)) => {
-                        match left_type_family.compare(&right_type_family) {
-                            Ok(type_family) => type_family,
-                            Err(_) => unimplemented!(),
-                        }
-                    }
+                    (Some(left_type_family), Some(right_type_family)) => match left_type_family.compare(&right_type_family) {
+                        Ok(type_family) => type_family,
+                        Err(_) => unimplemented!(),
+                    },
                     (Some(left_type_family), None) => left_type_family,
                     (None, Some(right_type_family)) => right_type_family,
                     (None, None) => unimplemented!(),
@@ -116,7 +110,15 @@ impl TypeInference {
                 op,
                 item: Box::new(self.infer_type(*item, param_types)),
             },
-            _ => unimplemented!(),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(value))) => TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(value),
+                type_family: SqlTypeFamily::Integer,
+            })),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(value))) => TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                value: BigDecimal::from(value),
+                type_family: SqlTypeFamily::BigInt,
+            })),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)) => TypedTree::Item(TypedItem::Null(None)),
         }
     }
 }

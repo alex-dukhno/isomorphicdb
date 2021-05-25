@@ -55,12 +55,7 @@ fn string(value: &str) -> String {
     value.to_owned()
 }
 
-fn assert_cached_statement(
-    query_plan_cache: &mut QueryPlanCache,
-    txn: &TransactionContext,
-    sql: &str,
-    expected: Vec<OutboundMessage>,
-) {
+fn assert_cached_statement(query_plan_cache: &mut QueryPlanCache, txn: &TransactionContext, sql: &str, expected: Vec<OutboundMessage>) {
     let executor = QueryExecutor;
     match QueryParser.parse(sql) {
         Ok(Request::Statement(statement)) => {
@@ -75,10 +70,7 @@ fn assert_statement(txn: &TransactionContext, sql: &str, expected: Vec<OutboundM
     let mut query_plan_cache = QueryPlanCache::default();
     match QueryParser.parse(sql) {
         Ok(Request::Statement(statement)) => {
-            assert_eq!(
-                executor.execute_statement(statement, txn, &mut query_plan_cache),
-                expected
-            );
+            assert_eq!(executor.execute_statement(statement, txn, &mut query_plan_cache), expected);
         }
         other => panic!("expected DDL query but was {:?}", other),
     }

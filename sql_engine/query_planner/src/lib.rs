@@ -14,8 +14,8 @@
 
 use catalog::CatalogHandler;
 use data_manipulation_query_plan::{
-    ConstraintValidator, DeleteQueryPlan, DynamicValues, Filter, FullTableScan, InsertQueryPlan, Projection, QueryPlan,
-    Repeater, SelectQueryPlan, StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
+    ConstraintValidator, DeleteQueryPlan, DynamicValues, Filter, FullTableScan, InsertQueryPlan, Projection, QueryPlan, Repeater, SelectQueryPlan,
+    StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
 use data_manipulation_typed_queries::TypedQuery;
 use data_manipulation_typed_tree::{TypedItem, TypedTree};

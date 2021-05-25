@@ -115,24 +115,16 @@ impl Worker {
                                                 query_plan_cache.save_parsed(statement_name, sql, query, param_types);
                                             }
                                             other => {
-                                                connection
-                                                    .send(QueryError::syntax_error(format!("{:?}", other)).into())
-                                                    .unwrap();
+                                                connection.send(QueryError::syntax_error(format!("{:?}", other)).into()).unwrap();
                                             }
                                         },
                                         Request::Transaction(transaction) => match transaction {
                                             Transaction::Begin => {
-                                                debug_assert!(
-                                                    txn_state.is_none(),
-                                                    "transaction state should be implicit"
-                                                );
+                                                debug_assert!(txn_state.is_none(), "transaction state should be implicit");
                                                 unimplemented!()
                                             }
                                             Transaction::Commit => {
-                                                debug_assert!(
-                                                    txn_state.is_some(),
-                                                    "transaction state should be in progress"
-                                                );
+                                                debug_assert!(txn_state.is_some(), "transaction state should be in progress");
                                                 match txn_state {
                                                     None => unimplemented!(),
                                                     Some(txn) => {
@@ -163,12 +155,9 @@ impl Worker {
                             Some(txn) => (txn, false),
                         };
                         match query_plan_cache.find_parsed(&name) {
-                            None => connection
-                                .send(QueryError::prepared_statement_does_not_exist(name).into())
-                                .unwrap(),
+                            None => connection.send(QueryError::prepared_statement_does_not_exist(name).into()).unwrap(),
                             Some((query, sql, _)) => {
-                                let (untyped_query, param_types, responses) =
-                                    executor.describe_statement(query.clone(), &txn);
+                                let (untyped_query, param_types, responses) = executor.describe_statement(query.clone(), &txn);
                                 for response in responses {
                                     connection.send(response).unwrap();
                                 }
@@ -198,8 +187,7 @@ impl Worker {
 
                                 let mut arguments: Vec<ScalarValue> = vec![];
                                 debug_assert!(
-                                    query_params.len() == param_types.len()
-                                        && query_params.len() == query_param_formats.len(),
+                                    query_params.len() == param_types.len() && query_params.len() == query_param_formats.len(),
                                     "encoded parameter values, their types and formats have to have same length"
                                 );
                                 for i in 0..query_params.len() {
@@ -242,9 +230,7 @@ impl Worker {
                             Some(txn) => (txn, false),
                         };
                         match query_plan_cache.find_described(&name) {
-                            None => connection
-                                .send(QueryError::prepared_statement_does_not_exist(&name).into())
-                                .unwrap(),
+                            None => connection.send(QueryError::prepared_statement_does_not_exist(&name).into()).unwrap(),
                             Some(_) => {
                                 connection.send(OutboundMessage::StatementDescription(vec![])).unwrap();
                             }
@@ -270,13 +256,7 @@ impl Worker {
                                 result_value_formats: _result_value_formats,
                                 arguments,
                                 param_types,
-                            }) => executor.execute_portal(
-                                untyped_query,
-                                param_types,
-                                arguments,
-                                &txn,
-                                &mut query_plan_cache,
-                            ),
+                            }) => executor.execute_portal(untyped_query, param_types, arguments, &txn, &mut query_plan_cache),
                         };
                         for response in responses {
                             connection.send(response).unwrap();
@@ -316,9 +296,7 @@ fn decode_binary(ty: u32, raw: &[u8]) -> Result<Value, ()> {
                 Ok(Value::Bool(raw[0] != 0))
             }
         }
-        CHAR | VARCHAR => std::str::from_utf8(raw)
-            .map(|s| Value::String(s.into()))
-            .map_err(|_cause| ()),
+        CHAR | VARCHAR => std::str::from_utf8(raw).map(|s| Value::String(s.into())).map_err(|_cause| ()),
         SMALLINT => {
             if raw.len() < 4 {
                 Err(())

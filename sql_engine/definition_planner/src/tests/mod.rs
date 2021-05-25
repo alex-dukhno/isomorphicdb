@@ -30,12 +30,7 @@ mod drop_table;
 const SCHEMA: &str = "schema_name";
 const TABLE: &str = "table_name";
 
-fn create_table_if_not_exists(
-    schema_name: &str,
-    table_name: &str,
-    columns: Vec<ColumnDef>,
-    if_not_exists: bool,
-) -> Definition {
+fn create_table_if_not_exists(schema_name: &str, table_name: &str, columns: Vec<ColumnDef>, if_not_exists: bool) -> Definition {
     Definition::CreateTable {
         schema_name: schema_name.to_owned(),
         table_name: table_name.to_owned(),

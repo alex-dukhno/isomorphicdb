@@ -44,10 +44,7 @@ fn delete_from_nonexistent_table() {
 
     assert_eq!(
         analyzer.analyze(delete_statement(SCHEMA, "non_existent_table")),
-        Err(AnalysisError::table_does_not_exist(format!(
-            "{}.{}",
-            SCHEMA, "non_existent_table"
-        )))
+        Err(AnalysisError::table_does_not_exist(format!("{}.{}", SCHEMA, "non_existent_table")))
     );
 }
 

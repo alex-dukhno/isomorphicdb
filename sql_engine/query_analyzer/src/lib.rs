@@ -12,21 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::tree_builder::TreeBuilder;
 use catalog::CatalogHandler;
-use data_manipulation_untyped_queries::{
-    UntypedDeleteQuery, UntypedInsertQuery, UntypedQuery, UntypedSelectQuery, UntypedUpdateQuery,
-};
+use data_manipulation_untyped_queries::{UntypedDeleteQuery, UntypedInsertQuery, UntypedQuery, UntypedSelectQuery, UntypedUpdateQuery};
 use data_manipulation_untyped_tree::{UntypedItem, UntypedTree};
+use data_manipulation_untyped_tree_builder::{TreeBuilder, UntypedExpressionError};
 use definition::FullTableName;
-use query_ast::{
-    Assignment, DeleteQuery, InsertQuery, InsertSource, Query, SelectItem, SelectQuery, UpdateQuery, Values,
-};
+use query_ast::{Assignment, DeleteQuery, InsertQuery, InsertSource, Query, SelectItem, SelectQuery, UpdateQuery, Values};
 use query_response::QueryError;
 use std::collections::HashMap;
 use storage::Transaction;
-
-mod tree_builder;
 
 pub struct QueryAnalyzer<'a> {
     catalog: CatalogHandler<'a>,
@@ -54,7 +48,7 @@ impl<'a> QueryAnalyzer<'a> {
                     None => Err(AnalysisError::schema_does_not_exist(full_table_name.schema())),
                     Some(None) => Err(AnalysisError::table_does_not_exist(full_table_name)),
                     Some(Some(table_info)) => {
-                        let table_columns = table_info.column_names();
+                        let table_columns = table_info.columns();
                         let column_names = if columns.is_empty() {
                             table_info.column_names().into_iter()
                         } else {
@@ -79,10 +73,10 @@ impl<'a> QueryAnalyzer<'a> {
                                 for insert_row in insert_rows {
                                     log::debug!("building static tree for {:?} row", insert_row);
                                     let mut row = vec![];
-                                    for table_column in &table_columns {
-                                        let value = match column_map.get(table_column) {
+                                    for table_column in table_columns {
+                                        let value = match column_map.get(table_column.name()) {
                                             Some(index) if index < &insert_row.len() => {
-                                                Some(TreeBuilder::build_static(insert_row[*index].clone())?)
+                                                Some(TreeBuilder::insert_position(insert_row[*index].clone(), table_column.sql_type())?)
                                             }
                                             _ => None,
                                         };
@@ -93,10 +87,7 @@ impl<'a> QueryAnalyzer<'a> {
                                 values
                             }
                         };
-                        Ok(UntypedQuery::Insert(UntypedInsertQuery {
-                            full_table_name,
-                            values,
-                        }))
+                        Ok(UntypedQuery::Insert(UntypedInsertQuery { full_table_name, values }))
                     }
                 }
             }
@@ -177,9 +168,7 @@ impl<'a> QueryAnalyzer<'a> {
                                         }));
                                     }
                                 }
-                                SelectItem::UnnamedExpr(expr) => {
-                                    projection_items.push(TreeBuilder::build_dynamic(expr, &table_columns)?)
-                                }
+                                SelectItem::UnnamedExpr(expr) => projection_items.push(TreeBuilder::build_dynamic(expr, &table_columns)?),
                             }
                         }
                         let filter = match where_clause {
@@ -209,10 +198,7 @@ impl<'a> QueryAnalyzer<'a> {
                             Some(expr) => Some(TreeBuilder::build_dynamic(expr, &table_columns)?),
                             None => None,
                         };
-                        Ok(UntypedQuery::Delete(UntypedDeleteQuery {
-                            full_table_name,
-                            filter,
-                        }))
+                        Ok(UntypedQuery::Delete(UntypedDeleteQuery { full_table_name, filter }))
                     }
                 }
             }
@@ -253,6 +239,15 @@ impl From<AnalysisError> for QueryError {
             AnalysisError::TableDoesNotExist(table_name) => QueryError::table_does_not_exist(table_name),
             AnalysisError::ColumnNotFound(column_name) => QueryError::column_does_not_exist(column_name),
             AnalysisError::ColumnCantBeReferenced(column_name) => QueryError::column_does_not_exist(column_name),
+        }
+    }
+}
+
+impl From<UntypedExpressionError> for AnalysisError {
+    fn from(error: UntypedExpressionError) -> Self {
+        match error {
+            UntypedExpressionError::ColumnNotFound(column_name) => AnalysisError::ColumnNotFound(column_name),
+            UntypedExpressionError::ColumnCantBeReferenced(column_name) => AnalysisError::ColumnCantBeReferenced(column_name),
         }
     }
 }

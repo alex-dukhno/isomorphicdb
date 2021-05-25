@@ -104,7 +104,10 @@ mod insert {
         assert_statement(
             &txn,
             "insert into schema_name.table_name values (-32769, -2147483649, 100), (100, -2147483649, -9223372036854775809);",
-            vec![QueryError::out_of_range_2(SqlType::small_int(), "column_si", 1).into(), OutboundMessage::ReadyForQuery],
+            vec![
+                QueryError::out_of_range_2(SqlType::small_int(), "column_si", 1).into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
         txn.commit();
     }
@@ -116,7 +119,10 @@ mod insert {
         assert_statement(
             &txn,
             "insert into schema_name.table_name values (-32768, -2147483648, 100), (100, -2147483649, -9223372036854775808);",
-            vec![QueryError::out_of_range_2(SqlType::integer(), "column_i".to_owned(), 2).into(), OutboundMessage::ReadyForQuery]
+            vec![
+                QueryError::out_of_range_2(SqlType::integer(), "column_i".to_owned(), 2).into(),
+                OutboundMessage::ReadyForQuery,
+            ],
         );
         txn.commit();
     }

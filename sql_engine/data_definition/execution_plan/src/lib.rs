@@ -59,11 +59,7 @@ pub struct ColumnDesc {
 impl From<(String, SqlType, usize)> for ColumnDesc {
     fn from(tuple: (String, SqlType, usize)) -> ColumnDesc {
         let (name, sql_type, ord_num) = tuple;
-        ColumnDesc {
-            name,
-            sql_type,
-            ord_num,
-        }
+        ColumnDesc { name, sql_type, ord_num }
     }
 }
 
@@ -119,12 +115,8 @@ impl From<ExecutionError> for QueryError {
         match error {
             ExecutionError::SchemaAlreadyExists(schema) => QueryError::schema_already_exists(schema),
             ExecutionError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),
-            ExecutionError::TableAlreadyExists(schema, table) => {
-                QueryError::table_already_exists(schema + "." + table.as_str())
-            }
-            ExecutionError::TableDoesNotExist(schema, table) => {
-                QueryError::table_does_not_exist(schema + "." + table.as_str())
-            }
+            ExecutionError::TableAlreadyExists(schema, table) => QueryError::table_already_exists(schema + "." + table.as_str()),
+            ExecutionError::TableDoesNotExist(schema, table) => QueryError::table_does_not_exist(schema + "." + table.as_str()),
             ExecutionError::SchemaHasDependentObjects(schema) => QueryError::schema_has_dependent_objects(schema),
             ExecutionError::ColumnNotFound(column) => QueryError::column_does_not_exist(column),
         }

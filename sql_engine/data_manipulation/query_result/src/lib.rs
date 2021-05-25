@@ -48,18 +48,10 @@ impl QueryExecutionError {
         left_type_family: LeftTy,
         right_type_family: RightTy,
     ) -> QueryExecutionError {
-        QueryExecutionError::UndefinedBiFunction(
-            operator.to_string(),
-            left_type_family.to_string(),
-            right_type_family.to_string(),
-        )
+        QueryExecutionError::UndefinedBiFunction(operator.to_string(), left_type_family.to_string(), right_type_family.to_string())
     }
 
-    pub fn datatype_mismatch<Op: ToString, TT: ToString, AT: ToString>(
-        operator: Op,
-        target_type: TT,
-        actual_type: AT,
-    ) -> QueryExecutionError {
+    pub fn datatype_mismatch<Op: ToString, TT: ToString, AT: ToString>(operator: Op, target_type: TT, actual_type: AT) -> QueryExecutionError {
         QueryExecutionError::DatatypeMismatch(operator.to_string(), target_type.to_string(), actual_type.to_string())
     }
 
@@ -73,12 +65,7 @@ impl QueryExecutionError {
         column_name: C,
         index: usize,
     ) -> QueryExecutionError {
-        QueryExecutionError::MostSpecificTypeMismatch(
-            value.to_string(),
-            sql_type.to_string(),
-            column_name.to_string(),
-            index,
-        )
+        QueryExecutionError::MostSpecificTypeMismatch(value.to_string(), sql_type.to_string(), column_name.to_string(), index)
     }
 
     pub fn cannot_coerce<FT: ToString, TT: ToString>(from_type: FT, to_type: TT) -> QueryExecutionError {
@@ -95,26 +82,16 @@ impl From<QueryExecutionError> for query_response::QueryError {
         match error {
             QueryExecutionError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),
             QueryExecutionError::ColumnNotFound(column) => QueryError::column_does_not_exist(column),
-            QueryExecutionError::UndefinedFunction(func, sql_type) => {
-                QueryError::undefined_function(func, sql_type.as_str(), "")
-            }
-            QueryExecutionError::UndefinedBiFunction(func, left_type, right_type) => {
-                QueryError::undefined_function(func, left_type, right_type)
-            }
-            QueryExecutionError::DatatypeMismatch(op, target_type, actual_type) => {
-                QueryError::datatype_mismatch(op, target_type, actual_type)
-            }
+            QueryExecutionError::UndefinedFunction(func, sql_type) => QueryError::undefined_function(func, sql_type.as_str(), ""),
+            QueryExecutionError::UndefinedBiFunction(func, left_type, right_type) => QueryError::undefined_function(func, left_type, right_type),
+            QueryExecutionError::DatatypeMismatch(op, target_type, actual_type) => QueryError::datatype_mismatch(op, target_type, actual_type),
             QueryExecutionError::InvalidArgumentForPowerFunction => QueryError::invalid_argument_for_power_function(),
-            QueryExecutionError::InvalidTextRepresentation(sql_type, value) => {
-                QueryError::invalid_text_representation_2(sql_type, value)
-            }
+            QueryExecutionError::InvalidTextRepresentation(sql_type, value) => QueryError::invalid_text_representation_2(sql_type, value),
             QueryExecutionError::MostSpecificTypeMismatch(value, sql_type, column_name, index) => {
                 QueryError::most_specific_type_mismatch2(value, sql_type, column_name, index)
             }
             QueryExecutionError::CannotCoerce(from_type, to_type) => QueryError::cannot_coerce(from_type, to_type),
-            QueryExecutionError::NumberOutOfRange(sql_type, column, index) => {
-                QueryError::out_of_range_2(sql_type, column, index)
-            }
+            QueryExecutionError::NumberOutOfRange(sql_type, column, index) => QueryError::out_of_range_2(sql_type, column, index),
         }
     }
 }

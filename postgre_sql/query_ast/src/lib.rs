@@ -151,20 +151,10 @@ pub struct Values(pub Vec<Vec<Expr>>);
 pub enum Expr {
     Value(Value),
     Param(u32),
-    BinaryOp {
-        left: Box<Expr>,
-        op: BinaryOperator,
-        right: Box<Expr>,
-    },
-    UnaryOp {
-        op: UnaryOperator,
-        expr: Box<Expr>,
-    },
+    BinaryOp { left: Box<Expr>, op: BinaryOperator, right: Box<Expr> },
+    UnaryOp { op: UnaryOperator, expr: Box<Expr> },
     Column(String),
-    Cast {
-        expr: Box<Expr>,
-        data_type: DataType,
-    },
+    Cast { expr: Box<Expr>, data_type: DataType },
 }
 
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -211,7 +201,6 @@ pub enum Value {
     Int(i32),
     Number(String),
     String(String),
-    Boolean(bool),
     Null,
 }
 

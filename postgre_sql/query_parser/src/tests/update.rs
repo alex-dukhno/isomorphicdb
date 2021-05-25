@@ -81,8 +81,7 @@ mod bi_ops {
         case::bitwise_shift_right(BinaryOperator::BitwiseShiftRight, ">>")
     )]
     fn update_with_op(expected: BinaryOperator, tested: &str) {
-        let statements =
-            QUERY_PARSER.parse(format!("update schema_name.table_name set col1 = 123 {} 456;", tested).as_str());
+        let statements = QUERY_PARSER.parse(format!("update schema_name.table_name set col1 = 123 {} 456;", tested).as_str());
 
         assert_eq!(
             statements,

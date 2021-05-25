@@ -16,9 +16,7 @@ use node_engine::NodeEngine;
 use storage::Database;
 
 fn main() {
-    simple_logger::SimpleLogger::from_env()
-        .init()
-        .expect("to initialize logger");
+    simple_logger::SimpleLogger::from_env().init().expect("to initialize logger");
 
     let root_path = std::env::var("ROOT_PATH").unwrap_or_else(|_| "./root_directory".to_owned());
     NodeEngine::default().start(Database::new(root_path.as_str()));

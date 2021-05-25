@@ -25,11 +25,7 @@ use types::{SqlType, SqlTypeFamily};
 pub struct QueryExecutor;
 
 impl QueryExecutor {
-    pub fn describe_statement(
-        &self,
-        query: Query,
-        txn: &TransactionContext,
-    ) -> (UntypedQuery, Vec<u32>, Vec<OutboundMessage>) {
+    pub fn describe_statement(&self, query: Query, txn: &TransactionContext) -> (UntypedQuery, Vec<u32>, Vec<OutboundMessage>) {
         let mut responses = vec![];
         let (untyped_query, params) = match txn.analyze(query) {
             Ok(UntypedQuery::Insert(insert)) => {
@@ -71,12 +67,7 @@ impl QueryExecutor {
         responses
     }
 
-    pub fn execute_statement(
-        &self,
-        statement: Statement,
-        txn: &TransactionContext,
-        query_plan_cache: &mut QueryPlanCache,
-    ) -> Vec<OutboundMessage> {
+    pub fn execute_statement(&self, statement: Statement, txn: &TransactionContext, query_plan_cache: &mut QueryPlanCache) -> Vec<OutboundMessage> {
         let mut responses = vec![];
         match statement {
             Statement::Definition(definition) => match txn.apply_schema_change(definition) {
@@ -84,13 +75,8 @@ impl QueryExecutor {
                 Err(failure) => responses.push(failure.into()),
             },
             Statement::Extended(extended) => match extended {
-                Extended::Prepare {
-                    query,
-                    name,
-                    param_types,
-                } => {
-                    let params: Vec<SqlTypeFamily> =
-                        param_types.into_iter().map(|dt| SqlType::from(dt).family()).collect();
+                Extended::Prepare { query, name, param_types } => {
+                    let params: Vec<SqlTypeFamily> = param_types.into_iter().map(|dt| SqlType::from(dt).family()).collect();
                     let typed_query = txn.process(query.clone(), params.clone()).unwrap();
                     let query_plan = txn.plan(typed_query);
                     query_plan_cache.allocate(name, query_plan, query, params);
@@ -104,9 +90,7 @@ impl QueryExecutor {
                             let typed_query = txn.process(query.clone(), params.clone()).unwrap();
                             let query_plan = txn.plan(typed_query);
                             match query_plan.execute(param_values.into_iter().map(ScalarValue::from).collect()) {
-                                Ok(QueryExecutionResult::Inserted(inserted)) => {
-                                    responses.push(OutboundMessage::RecordsInserted(inserted))
-                                }
+                                Ok(QueryExecutionResult::Inserted(inserted)) => responses.push(OutboundMessage::RecordsInserted(inserted)),
                                 Ok(_) => {}
                                 Err(_) => unimplemented!(),
                             }

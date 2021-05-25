@@ -145,10 +145,7 @@ fn integer_and_string(operator: BiOperator) {
             right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
         }
         .eval(&[], &[]),
-        Err(QueryExecutionError::invalid_text_representation(
-            SqlTypeFamily::Integer,
-            &"abc"
-        ))
+        Err(QueryExecutionError::invalid_text_representation(SqlTypeFamily::Integer, &"abc"))
     );
 
     assert_eq!(
@@ -162,10 +159,7 @@ fn integer_and_string(operator: BiOperator) {
             }))),
         }
         .eval(&[], &[]),
-        Err(QueryExecutionError::invalid_text_representation(
-            SqlTypeFamily::Integer,
-            &"abc"
-        ))
+        Err(QueryExecutionError::invalid_text_representation(SqlTypeFamily::Integer, &"abc"))
     );
 }
 

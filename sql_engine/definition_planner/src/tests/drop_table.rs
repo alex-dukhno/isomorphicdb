@@ -17,10 +17,7 @@ use super::*;
 fn inner_drop(names: Vec<(&str, &str)>, if_exists: bool, cascade: bool) -> Definition {
     Definition::DropTables {
         if_exists,
-        names: names
-            .into_iter()
-            .map(|(schema, table)| (schema.to_owned(), table.to_owned()))
-            .collect(),
+        names: names.into_iter().map(|(schema, table)| (schema.to_owned(), table.to_owned())).collect(),
         cascade,
     }
 }
@@ -54,9 +51,7 @@ fn drop_table() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-    catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
 
     let planner = DefinitionPlanner::from(transaction);
     assert_eq!(
@@ -93,9 +88,7 @@ fn drop_table_if_exists() {
     let transaction = db.transaction();
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-    catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
     catalog
         .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
         .unwrap();
@@ -104,10 +97,7 @@ fn drop_table_if_exists() {
     assert_eq!(
         planner.plan(drop_if_exists(vec![(SCHEMA, TABLE), (SCHEMA, "table_1")],)),
         Ok(SchemaChange::DropTables(DropTablesQuery {
-            full_table_names: vec![
-                FullTableName::from((&SCHEMA, &TABLE)),
-                FullTableName::from((&SCHEMA, &"table_1"))
-            ],
+            full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE)), FullTableName::from((&SCHEMA, &"table_1"))],
             cascade: false,
             if_exists: true
         }))
@@ -121,9 +111,7 @@ fn drop_table_cascade() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-    catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
     catalog
         .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
         .unwrap();
@@ -131,10 +119,7 @@ fn drop_table_cascade() {
     assert_eq!(
         planner.plan(drop_cascade(vec![(SCHEMA, TABLE), (SCHEMA, "table_1")],)),
         Ok(SchemaChange::DropTables(DropTablesQuery {
-            full_table_names: vec![
-                FullTableName::from((&SCHEMA, &TABLE)),
-                FullTableName::from((&SCHEMA, &"table_1"))
-            ],
+            full_table_names: vec![FullTableName::from((&SCHEMA, &TABLE)), FullTableName::from((&SCHEMA, &"table_1"))],
             cascade: true,
             if_exists: false
         }))

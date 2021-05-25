@@ -36,11 +36,7 @@ fn boolean_and_boolean(operator: BiOperator, left: bool, right: bool, result: bo
     );
 }
 
-#[rstest::rstest(
-    operator,
-    case::and(BiOperator::Logical(BiLogical::And)),
-    case::or(BiOperator::Logical(BiLogical::Or))
-)]
+#[rstest::rstest(operator, case::and(BiOperator::Logical(BiLogical::And)), case::or(BiOperator::Logical(BiLogical::Or)))]
 fn number_and_boolean(operator: BiOperator) {
     assert_eq!(
         TypedTree::BiOp {
@@ -79,11 +75,7 @@ fn number_and_boolean(operator: BiOperator) {
     );
 }
 
-#[rstest::rstest(
-    operator,
-    case::and(BiOperator::Logical(BiLogical::And)),
-    case::or(BiOperator::Logical(BiLogical::Or))
-)]
+#[rstest::rstest(operator, case::and(BiOperator::Logical(BiLogical::And)), case::or(BiOperator::Logical(BiLogical::Or)))]
 fn boolean_and_string(operator: BiOperator) {
     assert_eq!(
         TypedTree::BiOp {
@@ -116,11 +108,7 @@ fn boolean_and_string(operator: BiOperator) {
     );
 }
 
-#[rstest::rstest(
-    operator,
-    case::and(BiOperator::Logical(BiLogical::And)),
-    case::or(BiOperator::Logical(BiLogical::Or))
-)]
+#[rstest::rstest(operator, case::and(BiOperator::Logical(BiLogical::And)), case::or(BiOperator::Logical(BiLogical::Or)))]
 fn others(operator: BiOperator) {
     assert_eq!(
         TypedTree::BiOp {

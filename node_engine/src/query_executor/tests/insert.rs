@@ -26,10 +26,7 @@ fn insert_value_in_non_existent_column(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "insert into schema_name.table_name (non_existent) values (123);",
-        vec![
-            QueryError::column_does_not_exist("non_existent").into(),
-            OutboundMessage::ReadyForQuery,
-        ],
+        vec![QueryError::column_does_not_exist("non_existent").into(), OutboundMessage::ReadyForQuery],
     );
 
     txn.commit();
@@ -736,8 +733,7 @@ mod operators {
                 &txn,
                 "insert into schema_name.table_name values (1 || 2);",
                 vec![
-                    QueryError::undefined_function("||".to_owned(), "smallint".to_owned(), "smallint".to_owned())
-                        .into(),
+                    QueryError::undefined_function("||".to_owned(), "integer".to_owned(), "integer".to_owned()).into(),
                     OutboundMessage::ReadyForQuery,
                 ],
             );

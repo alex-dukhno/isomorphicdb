@@ -43,21 +43,14 @@ impl TypedTree {
         }
     }
 
-    pub fn eval(
-        self,
-        param_values: &[ScalarValue],
-        table_row: &[ScalarValue],
-    ) -> Result<ScalarValue, QueryExecutionError> {
+    pub fn eval(self, param_values: &[ScalarValue], table_row: &[ScalarValue]) -> Result<ScalarValue, QueryExecutionError> {
         match self {
             TypedTree::Item(TypedItem::Const(value)) => Ok(value.eval()),
             TypedTree::Item(TypedItem::Column { index, .. }) => Ok(table_row[index].clone()),
             TypedTree::Item(TypedItem::Param { index, .. }) => Ok(param_values[index].clone()),
             TypedTree::Item(TypedItem::Null(_)) => Ok(ScalarValue::Null),
             TypedTree::UnOp { op, item } => op.eval(item.eval(param_values, table_row)?),
-            TypedTree::BiOp { left, op, right, .. } => op.eval(
-                left.eval(param_values, table_row)?,
-                right.eval(param_values, table_row)?,
-            ),
+            TypedTree::BiOp { left, op, right, .. } => op.eval(left.eval(param_values, table_row)?, right.eval(param_values, table_row)?),
         }
     }
 }
@@ -65,16 +58,9 @@ impl TypedTree {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedItem {
     Const(TypedValue),
-    Param {
-        index: usize,
-        type_family: Option<SqlTypeFamily>,
-    },
+    Param { index: usize, type_family: Option<SqlTypeFamily> },
     Null(Option<SqlTypeFamily>),
-    Column {
-        name: String,
-        sql_type: SqlTypeFamily,
-        index: usize,
-    },
+    Column { name: String, sql_type: SqlTypeFamily, index: usize },
 }
 
 impl TypedItem {
@@ -90,10 +76,7 @@ impl TypedItem {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedValue {
-    Num {
-        value: BigDecimal,
-        type_family: SqlTypeFamily,
-    },
+    Num { value: BigDecimal, type_family: SqlTypeFamily },
     String(String),
     Bool(bool),
 }

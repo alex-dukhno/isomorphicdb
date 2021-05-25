@@ -24,5 +24,5 @@ fn untyped_number(num: BigDecimal) -> UntypedTree {
 }
 
 fn untyped_string(str: String) -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::String(str)))
+    UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(str)))
 }

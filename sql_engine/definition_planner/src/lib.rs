@@ -61,10 +61,7 @@ impl<'p> DefinitionPlanner<'p> {
                     }))
                 }
             }
-            Definition::CreateSchema {
-                schema_name,
-                if_not_exists,
-            } => Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
+            Definition::CreateSchema { schema_name, if_not_exists } => Ok(SchemaChange::CreateSchema(CreateSchemaQuery {
                 schema_name: SchemaName::from(&schema_name),
                 if_not_exists,
             })),
@@ -93,11 +90,7 @@ impl<'p> DefinitionPlanner<'p> {
                     }
                 }
             }
-            Definition::DropTables {
-                names,
-                if_exists,
-                cascade,
-            } => {
+            Definition::DropTables { names, if_exists, cascade } => {
                 let mut full_table_names = vec![];
                 for (schema_name, table_name) in names {
                     let full_table_name = FullTableName::from((&schema_name, &table_name));
@@ -113,11 +106,7 @@ impl<'p> DefinitionPlanner<'p> {
                     if_exists,
                 }))
             }
-            Definition::DropSchemas {
-                names,
-                cascade,
-                if_exists,
-            } => {
+            Definition::DropSchemas { names, cascade, if_exists } => {
                 let schema_names = names.iter().map(SchemaName::from).collect::<Vec<_>>();
                 Ok(SchemaChange::DropSchemas(DropSchemasQuery {
                     schema_names,

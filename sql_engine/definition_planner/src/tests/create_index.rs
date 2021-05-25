@@ -41,16 +41,8 @@ fn create_index_for_not_existent_table() {
     let db = Database::new("");
     let planner = DefinitionPlanner::from(db.transaction());
     assert_eq!(
-        planner.plan(create_index(
-            "index_name",
-            DEFAULT_SCHEMA,
-            "non_existent",
-            vec!["column"]
-        )),
-        Err(SchemaPlanError::table_does_not_exist(&format!(
-            "{}.{}",
-            DEFAULT_SCHEMA, "non_existent"
-        )))
+        planner.plan(create_index("index_name", DEFAULT_SCHEMA, "non_existent", vec!["column"])),
+        Err(SchemaPlanError::table_does_not_exist(&format!("{}.{}", DEFAULT_SCHEMA, "non_existent")))
     );
 }
 
@@ -60,21 +52,12 @@ fn create_index_over_column_that_does_not_exists_in_table() {
     let transaction = db.transaction();
     let catalog = CatalogHandler::from(transaction.clone());
     catalog
-        .apply(create_table_ops(
-            "public",
-            TABLE,
-            vec![("column", SqlType::small_int())],
-        ))
+        .apply(create_table_ops("public", TABLE, vec![("column", SqlType::small_int())]))
         .unwrap();
 
     let planner = DefinitionPlanner::from(transaction);
     assert_eq!(
-        planner.plan(create_index(
-            "index_name",
-            DEFAULT_SCHEMA,
-            TABLE,
-            vec!["non_existent_column"]
-        )),
+        planner.plan(create_index("index_name", DEFAULT_SCHEMA, TABLE, vec!["non_existent_column"])),
         Err(SchemaPlanError::column_not_found(&"non_existent_column"))
     );
 }
@@ -98,12 +81,7 @@ fn create_index_over_multiple_columns() {
 
     let planner = DefinitionPlanner::from(transaction);
     assert_eq!(
-        planner.plan(create_index(
-            "index_name",
-            DEFAULT_SCHEMA,
-            TABLE,
-            vec!["col_1", "col_2", "col_3"]
-        )),
+        planner.plan(create_index("index_name", DEFAULT_SCHEMA, TABLE, vec!["col_1", "col_2", "col_3"])),
         Ok(SchemaChange::CreateIndex(CreateIndexQuery {
             name: "index_name".to_owned(),
             full_table_name: FullTableName::from((&DEFAULT_SCHEMA, &TABLE)),

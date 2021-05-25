@@ -14,8 +14,7 @@
 
 use binary::BinaryValue;
 use data_definition_execution_plan::{
-    CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError,
-    ExecutionOutcome, SchemaChange,
+    CreateIndexQuery, CreateSchemaQuery, CreateTableQuery, DropSchemasQuery, DropTablesQuery, ExecutionError, ExecutionOutcome, SchemaChange,
 };
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use storage::Transaction;
@@ -118,10 +117,7 @@ impl<'c> CatalogHandler<'c> {
 
     pub fn apply(&self, schema_change: SchemaChange) -> Result<ExecutionOutcome, ExecutionError> {
         match schema_change {
-            SchemaChange::CreateSchema(CreateSchemaQuery {
-                schema_name,
-                if_not_exists,
-            }) => {
+            SchemaChange::CreateSchema(CreateSchemaQuery { schema_name, if_not_exists }) => {
                 if self.schema_exists(&SchemaName::from(&schema_name.as_ref())) {
                     if if_not_exists {
                         Ok(ExecutionOutcome::SchemaCreated)
@@ -131,10 +127,7 @@ impl<'c> CatalogHandler<'c> {
                 } else {
                     self.transaction
                         .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE))
-                        .write(vec![
-                            BinaryValue::from("IN_MEMORY"),
-                            BinaryValue::from(schema_name.as_ref()),
-                        ]);
+                        .write(vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from(schema_name.as_ref())]);
                     Ok(ExecutionOutcome::SchemaCreated)
                 }
             }
@@ -143,15 +136,10 @@ impl<'c> CatalogHandler<'c> {
                 cascade,
                 if_exists,
             }) => {
-                let schemas_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
-                let tables_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+                let schemas_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+                let tables_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
                 for schema_name in schema_names {
-                    let full_schema_name =
-                        vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from(schema_name.as_ref())];
+                    let full_schema_name = vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from(schema_name.as_ref())];
 
                     let schema_id = schemas_table
                         .scan()
@@ -173,13 +161,9 @@ impl<'c> CatalogHandler<'c> {
                                 })
                                 .is_none();
                             if !is_empty && !cascade {
-                                return Err(ExecutionError::SchemaHasDependentObjects(
-                                    schema_name.as_ref().to_owned(),
-                                ));
+                                return Err(ExecutionError::SchemaHasDependentObjects(schema_name.as_ref().to_owned()));
                             } else {
-                                let columns_table = self
-                                    .transaction
-                                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+                                let columns_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
                                 for column_key in columns_table
                                     .scan()
                                     .filter(|(_key, value)| {
@@ -218,13 +202,8 @@ impl<'c> CatalogHandler<'c> {
                 column_defs,
                 if_not_exists,
             }) => {
-                let schemas_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
-                let full_schema_name = vec![
-                    BinaryValue::from("IN_MEMORY"),
-                    BinaryValue::from(full_table_name.schema()),
-                ];
+                let schemas_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+                let full_schema_name = vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from(full_table_name.schema())];
 
                 let schema_id = schemas_table
                     .scan()
@@ -234,14 +213,10 @@ impl<'c> CatalogHandler<'c> {
                 match schema_id {
                     None => Err(ExecutionError::SchemaDoesNotExist(full_table_name.schema().to_owned())),
                     Some(_full_schema_id) => {
-                        let tables_table = self
-                            .transaction
-                            .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+                        let tables_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
                         let table_id = tables_table.scan().find(|(_key, value)| {
                             let value = value;
-                            value[0] == "IN_MEMORY"
-                                && value[1] == full_table_name.schema()
-                                && value[2] == full_table_name.table()
+                            value[0] == "IN_MEMORY" && value[1] == full_table_name.schema() && value[2] == full_table_name.table()
                         });
                         log::trace!("DEBUG {:?}", table_id);
                         match table_id {
@@ -263,9 +238,7 @@ impl<'c> CatalogHandler<'c> {
                                 ];
                                 let full_table_id = tables_table.write(full_table_name_record);
 
-                                let columns_table = self
-                                    .transaction
-                                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+                                let columns_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
 
                                 for (index, def) in column_defs.iter().enumerate() {
                                     let record = vec![
@@ -296,21 +269,12 @@ impl<'c> CatalogHandler<'c> {
                 cascade: _cascade,
                 if_exists,
             }) => {
-                let schemas_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
-                let tables_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
-                let columns_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+                let schemas_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+                let tables_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+                let columns_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
 
                 for full_table_name in full_table_names {
-                    let full_schema_name = vec![
-                        BinaryValue::from("IN_MEMORY"),
-                        BinaryValue::from(full_table_name.schema()),
-                    ];
+                    let full_schema_name = vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from(full_table_name.schema())];
 
                     let schema_id = schemas_table
                         .scan()
@@ -358,23 +322,12 @@ impl<'c> CatalogHandler<'c> {
                 full_table_name,
                 column_names,
             }) => {
-                let schemas_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
-                let tables_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
-                let columns_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
-                let indexes_table = self
-                    .transaction
-                    .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, INDEXES_TABLE));
+                let schemas_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));
+                let tables_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE));
+                let columns_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, COLUMNS_TABLE));
+                let indexes_table = self.transaction.lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, INDEXES_TABLE));
 
-                let full_schema_name = vec![
-                    BinaryValue::from("IN_MEMORY"),
-                    BinaryValue::from(full_table_name.schema()),
-                ];
+                let full_schema_name = vec![BinaryValue::from("IN_MEMORY"), BinaryValue::from(full_table_name.schema())];
 
                 let schema_id = schemas_table
                     .scan()
@@ -424,12 +377,8 @@ impl<'c> CatalogHandler<'c> {
                                     BinaryValue::from(column_names.join(", ")),
                                 ]);
 
-                                self.transaction.create_tree(format!(
-                                    "{}.{}.{}",
-                                    full_table_name.schema(),
-                                    full_table_name.table(),
-                                    name
-                                ));
+                                self.transaction
+                                    .create_tree(format!("{}.{}.{}", full_table_name.schema(), full_table_name.table(), name));
                                 Ok(ExecutionOutcome::IndexCreated)
                             }
                         }

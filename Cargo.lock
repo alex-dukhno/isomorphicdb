@@ -253,6 +253,7 @@ dependencies = [
  "data_manipulation_typed_tree",
  "data_manipulation_untyped_queries",
  "data_manipulation_untyped_tree",
+ "data_manipulation_untyped_tree_builder",
 ]
 
 [[package]]
@@ -331,6 +332,18 @@ dependencies = [
  "bigdecimal",
  "data_manipulation_operators",
  "log",
+ "types",
+]
+
+[[package]]
+name = "data_manipulation_untyped_tree_builder"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "data_manipulation_operators",
+ "data_manipulation_untyped_tree",
+ "definition",
+ "query_ast",
  "types",
 ]
 
@@ -1017,6 +1030,7 @@ dependencies = [
  "data_manipulation_operators",
  "data_manipulation_untyped_queries",
  "data_manipulation_untyped_tree",
+ "data_manipulation_untyped_tree_builder",
  "definition",
  "log",
  "query_ast",

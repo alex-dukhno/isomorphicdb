@@ -290,9 +290,7 @@ fn send_backend_keys() {
     let connection: Connection<New, TestData, TestData> = Connection::new(socket);
     let connection = connection.hand_shake::<TestData>(None).unwrap();
     let connection = connection.authenticate("123").unwrap();
-    let connection = connection
-        .send_params(&[("key1", "value1"), ("key2", "value2")])
-        .unwrap();
+    let connection = connection.send_params(&[("key1", "value1"), ("key2", "value2")]).unwrap();
     let connection = connection.send_backend_keys(CONNECTION_ID, CONNECTION_SECRET_KEY);
 
     assert!(matches!(connection, Ok(_)));
