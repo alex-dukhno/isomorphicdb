@@ -34,10 +34,7 @@ fn insert_number() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(1)]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(UntypedTree::UnOp {
-                op: UnOperator::Cast(SqlType::small_int()),
-                item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
-            })]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))]],
         }))
     );
 }
@@ -56,10 +53,7 @@ fn insert_string() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![string("str")]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(UntypedTree::UnOp {
-                op: UnOperator::Cast(SqlType::char(5)),
-                item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
-            })]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))]],
         }))
     );
 }
@@ -80,10 +74,7 @@ fn insert_boolean() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![Some(UntypedTree::UnOp {
                 op: UnOperator::Cast(SqlType::bool()),
-                item: Box::new(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::bool()),
-                    item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
-                })
+                item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
             })]],
         }))
     );
@@ -103,10 +94,7 @@ fn insert_null() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![null()]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(UntypedTree::UnOp {
-                op: UnOperator::Cast(SqlType::Bool),
-                item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)))
-            })]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)))]],
         }))
     );
 }
@@ -151,14 +139,8 @@ fn insert_into_table_with_parameters() {
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
-                Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::small_int()),
-                    item: Box::new(UntypedTree::Item(UntypedItem::Param(0)))
-                }),
-                Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::small_int()),
-                    item: Box::new(UntypedTree::Item(UntypedItem::Param(1)))
-                })
+                Some(UntypedTree::Item(UntypedItem::Param(0))),
+                Some(UntypedTree::Item(UntypedItem::Param(1)))
             ]],
         }))
     );
@@ -185,14 +167,8 @@ fn insert_into_table_with_parameters_and_values() {
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             values: vec![vec![
-                Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::small_int()),
-                    item: Box::new(UntypedTree::Item(UntypedItem::Param(0)))
-                }),
-                Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::small_int()),
-                    item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
-                })
+                Some(UntypedTree::Item(UntypedItem::Param(0))),
+                Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
             ]],
         }))
     );
@@ -214,10 +190,7 @@ fn insert_into_table_negative_number() {
         analyzer.analyze(insert_with_values(SCHEMA, TABLE, vec![vec![small_int(-32768)]])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(UntypedTree::UnOp {
-                op: UnOperator::Cast(SqlType::small_int()),
-                item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(-32768))))
-            })]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(-32768))))]],
         }))
     );
 }
@@ -260,13 +233,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::small_int()),
-                    item: Box::new(UntypedTree::BiOp {
-                        left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
-                        op: BiOperator::Arithmetic(BiArithmetic::Add),
-                        right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
-                    })
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
+                    op: BiOperator::Arithmetic(BiArithmetic::Add),
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
                 })]],
             }))
         );
@@ -293,13 +263,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::var_char(255)),
-                    item: Box::new(UntypedTree::BiOp {
-                        left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned())))),
-                        op: BiOperator::StringOp(Concat),
-                        right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
-                    })
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned())))),
+                    op: BiOperator::StringOp(Concat),
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
                 })]],
             }))
         );
@@ -323,13 +290,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::bool()),
-                    item: Box::new(UntypedTree::BiOp {
-                        left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
-                        op: BiOperator::Comparison(Comparison::Gt),
-                        right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
-                    })
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
+                    op: BiOperator::Comparison(Comparison::Gt),
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
                 })]],
             }))
         );
@@ -353,19 +317,16 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::bool()),
-                    item: Box::new(UntypedTree::BiOp {
-                        left: Box::new(UntypedTree::UnOp {
-                            op: UnOperator::Cast(SqlType::Bool),
-                            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
-                        }),
-                        op: BiOperator::Logical(BiLogical::And),
-                        right: Box::new(UntypedTree::UnOp {
-                            op: UnOperator::Cast(SqlType::Bool),
-                            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
-                        }),
-                    })
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::UnOp {
+                        op: UnOperator::Cast(SqlType::Bool),
+                        item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
+                    }),
+                    op: BiOperator::Logical(BiLogical::And),
+                    right: Box::new(UntypedTree::UnOp {
+                        op: UnOperator::Cast(SqlType::Bool),
+                        item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
+                    }),
                 })]],
             }))
         );
@@ -392,13 +353,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::small_int()),
-                    item: Box::new(UntypedTree::BiOp {
-                        left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
-                        op: BiOperator::Bitwise(Bitwise::Or),
-                        right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
-                    })
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
+                    op: BiOperator::Bitwise(Bitwise::Or),
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
                 })]],
             }))
         );
@@ -422,13 +380,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Insert(UntypedInsertQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                values: vec![vec![Some(UntypedTree::UnOp {
-                    op: UnOperator::Cast(SqlType::bool()),
-                    item: Box::new(UntypedTree::BiOp {
-                        left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("s".to_owned())))),
-                        op: BiOperator::Matching(Matching::Like),
-                        right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
-                    })
+                values: vec![vec![Some(UntypedTree::BiOp {
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("s".to_owned())))),
+                    op: BiOperator::Matching(Matching::Like),
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
                 })]],
             }))
         );

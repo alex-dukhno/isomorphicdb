@@ -62,10 +62,7 @@ fn with_column_names() {
         analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(100)]], vec!["col"])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(UntypedTree::UnOp {
-                op: UnOperator::Cast(SqlType::small_int()),
-                item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(100))))
-            })]],
+            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(100))))]],
         }))
     );
 }

@@ -19,75 +19,51 @@ use types::Str;
 #[test]
 fn string_literal() {
     assert_eq!(
-        TreeBuilder::insert_position(Expr::Value(Value::String("literal".to_owned())), SqlType::Str { len: 20, kind: Str::Var }),
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(SqlType::Str { len: 20, kind: Str::Var }),
-            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("literal".to_owned()))))
-        })
+        TreeBuilder::insert_position(Expr::Value(Value::String("literal".to_owned()))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("literal".to_owned()))))
     );
 }
 
 #[test]
 fn integer() {
     assert_eq!(
-        TreeBuilder::insert_position(Expr::Value(Value::Int(1)), SqlType::small_int()),
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(SqlType::small_int()),
-            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
-        })
+        TreeBuilder::insert_position(Expr::Value(Value::Int(1))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
     );
 }
 
 #[test]
 fn bigint() {
     assert_eq!(
-        TreeBuilder::insert_position(Expr::Value(Value::Number("2147483648".to_owned())), SqlType::big_int()),
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(SqlType::big_int()),
-            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(2147483648))))
-        })
+        TreeBuilder::insert_position(Expr::Value(Value::Number("2147483648".to_owned()))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(2147483648))))
     );
     assert_eq!(
-        TreeBuilder::insert_position(Expr::Value(Value::Number("-2147483649".to_owned())), SqlType::big_int()),
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(SqlType::big_int()),
-            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(-2147483649))))
-        })
+        TreeBuilder::insert_position(Expr::Value(Value::Number("-2147483649".to_owned()))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(-2147483649))))
     );
     assert_eq!(
-        TreeBuilder::insert_position(Expr::Value(Value::Number("9223372036854775807".to_owned())), SqlType::big_int()),
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(SqlType::big_int()),
-            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(9223372036854775807))))
-        })
+        TreeBuilder::insert_position(Expr::Value(Value::Number("9223372036854775807".to_owned()))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(9223372036854775807))))
     );
     assert_eq!(
-        TreeBuilder::insert_position(Expr::Value(Value::Number("-9223372036854775808".to_owned())), SqlType::big_int()),
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(SqlType::big_int()),
-            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(-9223372036854775808))))
-        })
+        TreeBuilder::insert_position(Expr::Value(Value::Number("-9223372036854775808".to_owned()))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(-9223372036854775808))))
     );
 }
 
 #[test]
 fn numeric() {
     assert_eq!(
-        TreeBuilder::insert_position(Expr::Value(Value::Number("-9223372036854775809".to_owned())), SqlType::big_int()),
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(SqlType::big_int()),
-            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                BigDecimal::from_str("-9223372036854775809").unwrap()
-            ))))
-        })
+        TreeBuilder::insert_position(Expr::Value(Value::Number("-9223372036854775809".to_owned()))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+            BigDecimal::from_str("-9223372036854775809").unwrap()
+        ))))
     );
     assert_eq!(
-        TreeBuilder::insert_position(Expr::Value(Value::Number("9223372036854775808".to_owned())), SqlType::big_int()),
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(SqlType::big_int()),
-            item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                BigDecimal::from_str("9223372036854775808").unwrap()
-            ))))
-        })
+        TreeBuilder::insert_position(Expr::Value(Value::Number("9223372036854775808".to_owned()))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+            BigDecimal::from_str("9223372036854775808").unwrap()
+        ))))
     );
 }

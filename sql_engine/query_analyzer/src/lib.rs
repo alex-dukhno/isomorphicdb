@@ -76,7 +76,7 @@ impl<'a> QueryAnalyzer<'a> {
                                     for table_column in table_columns {
                                         let value = match column_map.get(table_column.name()) {
                                             Some(index) if index < &insert_row.len() => {
-                                                Some(TreeBuilder::insert_position(insert_row[*index].clone(), table_column.sql_type())?)
+                                                Some(TreeBuilder::insert_position(insert_row[*index].clone())?)
                                             }
                                             _ => None,
                                         };

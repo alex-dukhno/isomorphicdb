@@ -71,11 +71,8 @@ impl TreeBuilder {
         Err(UntypedExpressionError::column_not_found(value))
     }
 
-    pub fn insert_position(expr: Expr, result_type: SqlType) -> Result<UntypedTree, UntypedExpressionError> {
-        Ok(UntypedTree::UnOp {
-            op: UnOperator::Cast(result_type),
-            item: Box::new(Self::inner_insert_position(expr)?),
-        })
+    pub fn insert_position(expr: Expr) -> Result<UntypedTree, UntypedExpressionError> {
+        Self::inner_insert_position(expr)
     }
 
     fn inner_insert_position(expr: Expr) -> Result<UntypedTree, UntypedExpressionError> {
