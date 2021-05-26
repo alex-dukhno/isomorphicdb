@@ -34,9 +34,6 @@ fn table_does_not_exist() {
     let analyzer = QueryAnalyzer::from(transaction);
     assert_eq!(
         analyzer.analyze(select(SCHEMA, "non_existent_table")),
-        Err(AnalysisError::table_does_not_exist(&format!(
-            "{}.{}",
-            SCHEMA, "non_existent_table"
-        )))
+        Err(AnalysisError::table_does_not_exist(&format!("{}.{}", SCHEMA, "non_existent_table")))
     );
 }

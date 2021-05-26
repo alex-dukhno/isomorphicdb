@@ -11,6 +11,7 @@ data_definition_execution_plan = { path = "../data_definition/execution_plan" }
 data_manipulation_untyped_queries = { path = "../data_manipulation/untyped_queries" }
 data_manipulation_operators = { path = "../data_manipulation/operators" }
 data_manipulation_untyped_tree = { path = "../data_manipulation/untyped_tree" }
+data_manipulation_untyped_tree_builder = { path = "../data_manipulation/untyped_tree_builder" }
 definition = { path = "../../definition" }
 query_ast = { path = "../../postgre_sql/query_ast" }
 query_response = { path = "../../postgre_sql/query_response" }
@@ -21,5 +22,5 @@ bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.14"
 
 [dev-dependencies]
-simple_logger = { version = "1.10.0" }
+simple_logger = { version = "1.10.0", default-features = false }
 data_definition_execution_plan = { path = "../data_definition/execution_plan" }

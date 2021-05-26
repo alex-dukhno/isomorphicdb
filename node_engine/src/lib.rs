@@ -34,24 +34,14 @@ pub struct QueryPlanCache {
 
 impl QueryPlanCache {
     pub fn save_parsed(&mut self, name: String, sql: String, query: Query, param_types: Vec<u32>) {
-        self.extended_query.insert(
-            name,
-            PreparedStatementState::Parsed {
-                sql,
-                query,
-                param_types,
-            },
-        );
+        self.extended_query
+            .insert(name, PreparedStatementState::Parsed { sql, query, param_types });
     }
 
     pub fn find_parsed(&mut self, name: &str) -> Option<(Query, String, Vec<u32>)> {
         match self.extended_query.remove(name) {
             None => None,
-            Some(PreparedStatementState::Parsed {
-                query,
-                sql,
-                param_types,
-            }) => Some((query, sql, param_types.to_vec())),
+            Some(PreparedStatementState::Parsed { query, sql, param_types }) => Some((query, sql, param_types.to_vec())),
             Some(_) => None,
         }
     }

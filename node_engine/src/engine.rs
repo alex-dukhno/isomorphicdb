@@ -38,16 +38,15 @@ impl NodeEngine {
                 Ok(socket) => {
                     let db = database.clone();
                     thread::spawn(move || -> io::Result<()> {
-                        let acceptor: PgWireAcceptor<Identity> =
-                            match (pfx_certificate_path(), pfx_certificate_password()) {
-                                (Ok(path), Ok(pass)) => {
-                                    let mut buff = vec![];
-                                    let mut file = std::fs::File::open(path).unwrap();
-                                    file.read_to_end(&mut buff)?;
-                                    PgWireAcceptor::new(Some(Identity::from_pkcs12(&buff, &pass).unwrap()))
-                                }
-                                _ => PgWireAcceptor::new(None),
-                            };
+                        let acceptor: PgWireAcceptor<Identity> = match (pfx_certificate_path(), pfx_certificate_password()) {
+                            (Ok(path), Ok(pass)) => {
+                                let mut buff = vec![];
+                                let mut file = std::fs::File::open(path).unwrap();
+                                file.read_to_end(&mut buff)?;
+                                PgWireAcceptor::new(Some(Identity::from_pkcs12(&buff, &pass).unwrap()))
+                            }
+                            _ => PgWireAcceptor::new(None),
+                        };
 
                         let mut connection = acceptor.accept(socket).unwrap();
 

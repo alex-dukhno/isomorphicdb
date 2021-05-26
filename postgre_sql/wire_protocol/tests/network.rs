@@ -51,11 +51,7 @@ fn non_secure() {
         started = cond.wait(started).unwrap();
     }
 
-    let client = Client::connect(
-        format!("host=0.0.0.0 port={} user=postgre_sql password=123", PORT).as_str(),
-        NoTls,
-    )
-    .unwrap();
+    let client = Client::connect(format!("host=0.0.0.0 port={} user=postgre_sql password=123", PORT).as_str(), NoTls).unwrap();
 
     client.close().unwrap();
 
@@ -104,11 +100,7 @@ fn secure() {
     }
 
     let client = postgres::Client::connect(
-        format!(
-            "host=0.0.0.0 port={} user=postgre_sql password=123 sslmode=require",
-            PORT
-        )
-        .as_str(),
+        format!("host=0.0.0.0 port={} user=postgre_sql password=123 sslmode=require", PORT).as_str(),
         connector,
     )
     .unwrap();

@@ -36,9 +36,6 @@ fn table_does_not_exist() {
 
     assert_eq!(
         analyzer.analyze(update_statement(SCHEMA, "non_existent", vec![])),
-        Err(AnalysisError::table_does_not_exist(format!(
-            "{}.{}",
-            SCHEMA, "non_existent"
-        )))
+        Err(AnalysisError::table_does_not_exist(format!("{}.{}", SCHEMA, "non_existent")))
     );
 }

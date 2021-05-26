@@ -22,10 +22,7 @@ use types::SqlTypeFamily;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum ScalarValue {
-    Num {
-        value: BigDecimal,
-        type_family: SqlTypeFamily,
-    },
+    Num { value: BigDecimal, type_family: SqlTypeFamily },
     String(String),
     Bool(bool),
     Null,
@@ -115,7 +112,6 @@ impl From<query_ast::Value> for ScalarValue {
                 type_family: SqlTypeFamily::Double,
             },
             query_ast::Value::String(value) => ScalarValue::String(value),
-            query_ast::Value::Boolean(value) => ScalarValue::Bool(value),
             query_ast::Value::Null => ScalarValue::Null,
         }
     }

@@ -305,10 +305,7 @@ mod unary_bitwise_not {
                 }))),
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
-                UnOperator::BitwiseNot,
-                SqlTypeFamily::Real
-            ))
+            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Real))
         );
 
         assert_eq!(
@@ -320,10 +317,7 @@ mod unary_bitwise_not {
                 }))),
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
-                UnOperator::BitwiseNot,
-                SqlTypeFamily::Double
-            ))
+            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Double))
         );
     }
 
@@ -335,10 +329,7 @@ mod unary_bitwise_not {
                 item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned())))),
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
-                UnOperator::BitwiseNot,
-                SqlTypeFamily::String
-            ))
+            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::String))
         );
     }
 
@@ -350,10 +341,7 @@ mod unary_bitwise_not {
                 item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
-                UnOperator::BitwiseNot,
-                SqlTypeFamily::Bool
-            ))
+            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Bool))
         );
     }
 }

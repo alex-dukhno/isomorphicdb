@@ -1,4 +1,4 @@
-max_width = 120
+max_width = 150
 license_template_path = "HEADER"
 imports_granularity = "Crate"
 ignore = ['isomorphicdb/src/connection/async_native_tls/mod.rs']

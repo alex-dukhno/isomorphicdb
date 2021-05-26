@@ -63,9 +63,7 @@ impl SqlTypeFamily {
         } else if self.is_int() && other.is_int() {
             if self == other {
                 Ok(*self)
-            } else if self == &SqlTypeFamily::SmallInt && other == &SqlTypeFamily::Integer
-                || other == &SqlTypeFamily::BigInt
-            {
+            } else if self == &SqlTypeFamily::SmallInt && other == &SqlTypeFamily::Integer || other == &SqlTypeFamily::BigInt {
                 Ok(*other)
             } else {
                 Ok(*self)
@@ -75,10 +73,7 @@ impl SqlTypeFamily {
         } else if self.is_int() && other.is_float() {
             Ok(*other)
         } else if self != other {
-            Err(IncomparableSqlTypeFamilies {
-                left: *self,
-                right: *other,
-            })
+            Err(IncomparableSqlTypeFamilies { left: *self, right: *other })
         } else {
             Ok(*self)
         }

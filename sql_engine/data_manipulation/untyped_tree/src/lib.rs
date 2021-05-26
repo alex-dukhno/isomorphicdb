@@ -24,16 +24,14 @@ use types::{Bool, SqlType, SqlTypeFamily};
 pub enum UntypedItem {
     Const(UntypedValue),
     Param(usize),
-    Column {
-        name: String,
-        sql_type: SqlType,
-        index: usize,
-    },
+    Column { name: String, sql_type: SqlType, index: usize },
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
 pub enum UntypedValue {
-    String(String),
+    Literal(String),
+    Int(i32),
+    BigInt(i64),
     Number(BigDecimal),
     Bool(Bool),
     Null,
@@ -42,10 +40,11 @@ pub enum UntypedValue {
 impl UntypedValue {
     pub fn kind(&self) -> Option<SqlTypeFamily> {
         match self {
-            UntypedValue::String(_) => Some(SqlTypeFamily::String),
-            UntypedValue::Number(num) if num.is_integer() => Some(SqlTypeFamily::Integer),
+            UntypedValue::Int(_) => Some(SqlTypeFamily::Integer),
+            UntypedValue::BigInt(_) => Some(SqlTypeFamily::BigInt),
             UntypedValue::Number(_) => Some(SqlTypeFamily::Real),
             UntypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
+            UntypedValue::Literal(_) => None,
             UntypedValue::Null => None,
         }
     }
@@ -54,10 +53,12 @@ impl UntypedValue {
 impl Display for UntypedValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            UntypedValue::String(s) => write!(f, "{}", s),
+            UntypedValue::Int(n) => write!(f, "{}", n),
+            UntypedValue::BigInt(n) => write!(f, "{}", n),
             UntypedValue::Number(n) => write!(f, "{}", n),
             UntypedValue::Bool(Bool(true)) => write!(f, "t"),
             UntypedValue::Bool(Bool(false)) => write!(f, "f"),
+            UntypedValue::Literal(value) => write!(f, "{}", value),
             UntypedValue::Null => write!(f, "NULL"),
         }
     }

@@ -13,13 +13,12 @@
 // limitations under the License.
 
 use super::*;
-use bigdecimal::BigDecimal;
 use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, SchemaChange};
-use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching};
+use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching, UnOperator};
 use definition::SchemaName;
-use query_ast::{Assignment, BinaryOperator, Expr, Value};
+use query_ast::{Assignment, BinaryOperator, DataType, Expr, Value};
 use storage::Database;
-use types::{Bool, SqlType};
+use types::SqlType;
 
 #[cfg(test)]
 mod delete;
@@ -42,7 +41,10 @@ fn null() -> Expr {
 }
 
 fn boolean(value: bool) -> Expr {
-    Expr::Value(Value::Boolean(value))
+    Expr::Cast {
+        expr: Box::new(Expr::Value(Value::String(value.to_string().chars().take(1).next().unwrap().to_string()))),
+        data_type: DataType::Bool,
+    }
 }
 
 fn number(value: i16) -> Value {

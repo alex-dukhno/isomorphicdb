@@ -12,23 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::AnalysisError;
 use bigdecimal::BigDecimal;
 use data_manipulation_operators::{BiOperator, UnOperator};
 use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 use definition::ColumnDef;
 use query_ast::{BinaryOperator, Expr, Value};
 use std::str::FromStr;
-use types::{Bool, SqlType};
+use types::SqlType;
 
-pub(crate) struct TreeBuilder;
+const MAX_BIG_INT: &str = "9223372036854775807";
+const MIN_BIG_INT: &str = "-9223372036854775808";
+
+pub struct TreeBuilder;
 
 impl TreeBuilder {
-    pub(crate) fn build_dynamic(root_expr: Expr, table_columns: &[ColumnDef]) -> Result<UntypedTree, AnalysisError> {
+    pub fn build_dynamic(root_expr: Expr, table_columns: &[ColumnDef]) -> Result<UntypedTree, UntypedExpressionError> {
         Self::inner_dynamic(root_expr, table_columns)
     }
 
-    fn inner_dynamic(root_expr: Expr, table_columns: &[ColumnDef]) -> Result<UntypedTree, AnalysisError> {
+    fn inner_dynamic(root_expr: Expr, table_columns: &[ColumnDef]) -> Result<UntypedTree, UntypedExpressionError> {
         match root_expr {
             Expr::Value(value) => Ok(Self::value(value)),
             Expr::Column(ident) => Self::ident(ident, table_columns),
@@ -38,19 +40,14 @@ impl TreeBuilder {
                 item: Box::new(Self::inner_dynamic(*expr, table_columns)?),
             }),
             Expr::Cast { expr, data_type } => Ok(UntypedTree::UnOp {
-                op: UnOperator::Cast(SqlType::from(data_type).family()),
+                op: UnOperator::Cast(SqlType::from(data_type)),
                 item: Box::new(Self::inner_dynamic(*expr, table_columns)?),
             }),
             Expr::Param(index) => Ok(UntypedTree::Item(UntypedItem::Param((index - 1) as usize))),
         }
     }
 
-    fn dynamic_binary_op(
-        op: BinaryOperator,
-        left: Expr,
-        right: Expr,
-        table_columns: &[ColumnDef],
-    ) -> Result<UntypedTree, AnalysisError> {
+    fn dynamic_binary_op(op: BinaryOperator, left: Expr, right: Expr, table_columns: &[ColumnDef]) -> Result<UntypedTree, UntypedExpressionError> {
         let left = Self::inner_dynamic(left, table_columns)?;
         let right = Self::inner_dynamic(right, table_columns)?;
         Ok(UntypedTree::BiOp {
@@ -60,7 +57,7 @@ impl TreeBuilder {
         })
     }
 
-    fn ident(value: String, table_columns: &[ColumnDef]) -> Result<UntypedTree, AnalysisError> {
+    fn ident(value: String, table_columns: &[ColumnDef]) -> Result<UntypedTree, UntypedExpressionError> {
         for (index, table_column) in table_columns.iter().enumerate() {
             let column_name = value.to_lowercase();
             if table_column.has_name(column_name.as_str()) {
@@ -71,33 +68,33 @@ impl TreeBuilder {
                 }));
             }
         }
-        Err(AnalysisError::column_not_found(value))
+        Err(UntypedExpressionError::column_not_found(value))
     }
 
-    pub(crate) fn build_static(root_expr: Expr) -> Result<UntypedTree, AnalysisError> {
-        Self::inner_static(root_expr)
+    pub fn insert_position(expr: Expr) -> Result<UntypedTree, UntypedExpressionError> {
+        Self::inner_insert_position(expr)
     }
 
-    fn inner_static(root_expr: Expr) -> Result<UntypedTree, AnalysisError> {
-        match root_expr {
+    fn inner_insert_position(expr: Expr) -> Result<UntypedTree, UntypedExpressionError> {
+        match expr {
             Expr::Value(value) => Ok(Self::value(value)),
-            Expr::Column(name) => Err(AnalysisError::column_cant_be_referenced(name)),
+            Expr::Column(name) => Err(UntypedExpressionError::column_cant_be_referenced(name)),
             Expr::BinaryOp { left, op, right } => Self::static_binary_op(op, *left, *right),
             Expr::Cast { expr, data_type } => Ok(UntypedTree::UnOp {
-                op: UnOperator::Cast(SqlType::from(data_type).family()),
-                item: Box::new(Self::inner_static(*expr)?),
+                op: UnOperator::Cast(SqlType::from(data_type)),
+                item: Box::new(Self::inner_insert_position(*expr)?),
             }),
             Expr::UnaryOp { op, expr } => Ok(UntypedTree::UnOp {
                 op: UnOperator::from(op),
-                item: Box::new(Self::inner_static(*expr)?),
+                item: Box::new(Self::inner_insert_position(*expr)?),
             }),
             Expr::Param(index) => Ok(UntypedTree::Item(UntypedItem::Param((index - 1) as usize))),
         }
     }
 
-    fn static_binary_op(operator: BinaryOperator, left: Expr, right: Expr) -> Result<UntypedTree, AnalysisError> {
-        let left = Self::inner_static(left)?;
-        let right = Self::inner_static(right)?;
+    fn static_binary_op(operator: BinaryOperator, left: Expr, right: Expr) -> Result<UntypedTree, UntypedExpressionError> {
+        let left = Self::inner_insert_position(left)?;
+        let right = Self::inner_insert_position(right)?;
         Ok(UntypedTree::BiOp {
             left: Box::new(left),
             op: BiOperator::from(operator),
@@ -107,13 +104,40 @@ impl TreeBuilder {
 
     fn value(value: Value) -> UntypedTree {
         match value {
-            Value::Int(num) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from(num)))),
-            Value::String(string) => UntypedTree::Item(UntypedItem::Const(UntypedValue::String(string))),
-            Value::Boolean(boolean) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(boolean)))),
+            Value::Int(num) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(num))),
+            Value::String(string) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(string))),
             Value::Null => UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)),
-            Value::Number(num) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                BigDecimal::from_str(&num).unwrap(),
-            ))),
+            Value::Number(num) if num.contains('.') => {
+                UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from_str(&num).unwrap())))
+            }
+            Value::Number(num) => {
+                if (num.starts_with('-') && num.len() < MIN_BIG_INT.len() || num.len() == MIN_BIG_INT.len() && num.as_str() <= MIN_BIG_INT)
+                    || (num.len() < MAX_BIG_INT.len() || num.len() == MAX_BIG_INT.len() && num.as_str() <= MAX_BIG_INT)
+                {
+                    UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(num.parse().unwrap())))
+                } else {
+                    UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from_str(&num).unwrap())))
+                }
+            }
         }
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub enum UntypedExpressionError {
+    ColumnNotFound(String),
+    ColumnCantBeReferenced(String),
+}
+
+impl UntypedExpressionError {
+    pub fn column_not_found<C: ToString>(column_name: C) -> UntypedExpressionError {
+        UntypedExpressionError::ColumnNotFound(column_name.to_string())
+    }
+
+    pub fn column_cant_be_referenced<C: ToString>(column_name: C) -> UntypedExpressionError {
+        UntypedExpressionError::ColumnCantBeReferenced(column_name.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests;

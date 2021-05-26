@@ -14,9 +14,8 @@
 
 use postgres_parser::{nodes, sys, Node, PgParserError, SqlStatementScanner};
 use query_ast::{
-    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteQuery, Expr, Extended, InsertQuery,
-    InsertSource, Query, Request, SelectItem, SelectQuery, Set, Statement, Transaction, UnaryOperator, UpdateQuery,
-    Value, Values,
+    Assignment, BinaryOperator, ColumnDef, DataType, Definition, DeleteQuery, Expr, Extended, InsertQuery, InsertSource, Query, Request, SelectItem,
+    SelectQuery, Set, Statement, Transaction, UnaryOperator, UpdateQuery, Value, Values,
 };
 use query_response::QueryError;
 use std::fmt::{self, Display, Formatter};
@@ -101,18 +100,14 @@ impl QueryParser {
                                     Node::List(mut values) => {
                                         if values.len() == 1 {
                                             match values.pop() {
-                                                Some(Node::Value(nodes::Value { string: Some(name), .. })) => {
-                                                    names.push(("public".to_owned(), name))
-                                                }
+                                                Some(Node::Value(nodes::Value { string: Some(name), .. })) => names.push(("public".to_owned(), name)),
                                                 _ => unimplemented!(),
                                             }
                                         } else if values.len() == 2 {
                                             match (values.pop(), values.pop()) {
                                                 (
                                                     Some(Node::Value(nodes::Value { string: Some(name), .. })),
-                                                    Some(Node::Value(nodes::Value {
-                                                        string: Some(schema), ..
-                                                    })),
+                                                    Some(Node::Value(nodes::Value { string: Some(schema), .. })),
                                                 ) => names.push((schema, name)),
                                                 _ => unimplemented!(),
                                             }
@@ -161,9 +156,7 @@ impl QueryParser {
                     for index_param in index_params.unwrap() {
                         log::trace!("INDEX PARAM - {:?}", index_param);
                         match index_param {
-                            Node::IndexElem(nodes::IndexElem { name: Some(name), .. }) => {
-                                column_names.push(name.to_lowercase())
-                            }
+                            Node::IndexElem(nodes::IndexElem { name: Some(name), .. }) => column_names.push(name.to_lowercase()),
                             _ => unimplemented!(),
                         }
                     }
@@ -222,10 +215,7 @@ impl QueryParser {
                             other => unreachable!("{:?} could not be used as parameter", other),
                         }
                     }
-                    return Ok(Request::Statement(Statement::Extended(Extended::Execute {
-                        name,
-                        param_values,
-                    })));
+                    return Ok(Request::Statement(Statement::Extended(Extended::Execute { name, param_values })));
                 }
                 Ok(Some(Node::DeallocateStmt(nodes::DeallocateStmt { name: Some(name) }))) => {
                     return Ok(Request::Statement(Statement::Extended(Extended::Deallocate { name })))
@@ -262,9 +252,7 @@ impl QueryParser {
                 for col in cols.unwrap_or_else(Vec::new) {
                     log::trace!("COL {:?}", col);
                     match col {
-                        Node::ResTarget(nodes::ResTarget {
-                            name: Some(col_name), ..
-                        }) => {
+                        Node::ResTarget(nodes::ResTarget { name: Some(col_name), .. }) => {
                             columns.push(col_name);
                         }
                         _ => unimplemented!(),
@@ -274,8 +262,7 @@ impl QueryParser {
                 let mut values = vec![];
                 if let Some(stmt) = select_statement {
                     if let Node::SelectStmt(nodes::SelectStmt {
-                        valuesLists: Some(lists),
-                        ..
+                        valuesLists: Some(lists), ..
                     }) = *stmt
                     {
                         for list in lists {
@@ -324,15 +311,13 @@ impl QueryParser {
                 for target in target_list.unwrap() {
                     match target {
                         Node::ResTarget(nodes::ResTarget { val: Some(ident), .. }) => match *ident {
-                            Node::ColumnRef(nodes::ColumnRef {
-                                fields: Some(fields), ..
-                            }) => {
+                            Node::ColumnRef(nodes::ColumnRef { fields: Some(fields), .. }) => {
                                 for field in fields {
                                     match field {
                                         Node::A_Star(_) => select_items.push(SelectItem::Wildcard),
-                                        Node::Value(nodes::Value {
-                                            string: Some(col_name), ..
-                                        }) => select_items.push(SelectItem::UnnamedExpr(Expr::Column(col_name))),
+                                        Node::Value(nodes::Value { string: Some(col_name), .. }) => {
+                                            select_items.push(SelectItem::UnnamedExpr(Expr::Column(col_name)))
+                                        }
                                         _ => unimplemented!(),
                                     }
                                 }
@@ -429,26 +414,22 @@ impl QueryParser {
             Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("float4") => DataType::Real,
             Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("float8") => DataType::Double,
             Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("bool") => DataType::Bool,
-            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("bpchar") => {
-                match mode.as_ref().map(|inner| &inner[0]) {
-                    Some(&Node::A_Const(nodes::A_Const {
-                        val: nodes::Value { int: None, .. },
-                    })) => DataType::Char(1),
-                    Some(&Node::A_Const(nodes::A_Const {
-                        val: nodes::Value { int: Some(len), .. },
-                    })) => DataType::Char(len as u32),
-                    _ => unimplemented!(),
-                }
-            }
-            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("varchar") => {
-                match mode.as_ref().map(|inner| &inner[0]) {
-                    None => DataType::VarChar(None),
-                    Some(&Node::A_Const(nodes::A_Const {
-                        val: nodes::Value { int: Some(len), .. },
-                    })) => DataType::VarChar(Some(len as u32)),
-                    _ => unimplemented!(),
-                }
-            }
+            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("bpchar") => match mode.as_ref().map(|inner| &inner[0]) {
+                Some(&Node::A_Const(nodes::A_Const {
+                    val: nodes::Value { int: None, .. },
+                })) => DataType::Char(1),
+                Some(&Node::A_Const(nodes::A_Const {
+                    val: nodes::Value { int: Some(len), .. },
+                })) => DataType::Char(len as u32),
+                _ => unimplemented!(),
+            },
+            Node::Value(nodes::Value { string, .. }) if string.as_deref() == Some("varchar") => match mode.as_ref().map(|inner| &inner[0]) {
+                None => DataType::VarChar(None),
+                Some(&Node::A_Const(nodes::A_Const {
+                    val: nodes::Value { int: Some(len), .. },
+                })) => DataType::VarChar(Some(len as u32)),
+                _ => unimplemented!(),
+            },
             _ => unimplemented!(),
         }
     }
@@ -594,14 +575,10 @@ impl QueryParser {
                 val: nodes::Value { float: Some(num), .. },
             }) => Expr::Value(Value::Number(num)),
             Node::A_Const(nodes::A_Const {
-                val: nodes::Value {
-                    string: Some(value), ..
-                },
+                val: nodes::Value { string: Some(value), .. },
             }) => Expr::Value(Value::String(value)),
             Node::ParamRef(nodes::ParamRef { number }) => Expr::Param(number as u32),
-            Node::ColumnRef(nodes::ColumnRef {
-                fields: Some(mut values),
-            }) => match values.pop() {
+            Node::ColumnRef(nodes::ColumnRef { fields: Some(mut values) }) => match values.pop() {
                 Some(Node::Value(nodes::Value { string: Some(name), .. })) => Expr::Column(name.to_lowercase()),
                 _ => unimplemented!(),
             },
@@ -619,9 +596,7 @@ impl QueryParser {
     fn parse_const(&self, node: nodes::A_Const) -> Expr {
         match node {
             nodes::A_Const {
-                val: nodes::Value {
-                    string: Some(value), ..
-                },
+                val: nodes::Value { string: Some(value), .. },
             } => Expr::Value(Value::String(value)),
             nodes::A_Const {
                 val: nodes::Value { int: Some(value), .. },

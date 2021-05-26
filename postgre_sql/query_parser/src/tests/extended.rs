@@ -17,8 +17,7 @@ use query_ast::Extended;
 
 #[test]
 fn prepare() {
-    let statement =
-        QUERY_PARSER.parse("prepare foo_plan (smallint) as insert into schema_name.table_name values ($1);");
+    let statement = QUERY_PARSER.parse("prepare foo_plan (smallint) as insert into schema_name.table_name values ($1);");
 
     assert_eq!(
         statement,

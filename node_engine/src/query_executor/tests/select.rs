@@ -62,10 +62,7 @@ fn select_not_all_columns(with_schema: TransactionManager) {
         &txn,
         "select column_3, column_2 from schema_name.table_name;",
         vec![
-            OutboundMessage::RowDescription(vec![
-                ("column_3".to_owned(), SMALLINT),
-                ("column_2".to_owned(), SMALLINT),
-            ]),
+            OutboundMessage::RowDescription(vec![("column_3".to_owned(), SMALLINT), ("column_2".to_owned(), SMALLINT)]),
             OutboundMessage::DataRow(vec![small_int(7), small_int(4)]),
             OutboundMessage::DataRow(vec![small_int(8), small_int(5)]),
             OutboundMessage::DataRow(vec![small_int(9), small_int(6)]),
@@ -114,10 +111,7 @@ fn select_first_and_last_columns_from_table_with_multiple_columns(with_schema: T
         &txn,
         "select column_3, column_1 from schema_name.table_name;",
         vec![
-            OutboundMessage::RowDescription(vec![
-                ("column_3".to_owned(), SMALLINT),
-                ("column_1".to_owned(), SMALLINT),
-            ]),
+            OutboundMessage::RowDescription(vec![("column_3".to_owned(), SMALLINT), ("column_1".to_owned(), SMALLINT)]),
             OutboundMessage::DataRow(vec![small_int(3), small_int(1)]),
             OutboundMessage::DataRow(vec![small_int(6), small_int(4)]),
             OutboundMessage::DataRow(vec![small_int(9), small_int(7)]),
@@ -186,27 +180,9 @@ fn select_with_column_name_duplication(with_schema: TransactionManager) {
                 ("column_3".to_owned(), SMALLINT),
                 ("column_2".to_owned(), SMALLINT),
             ]),
-            OutboundMessage::DataRow(vec![
-                small_int(3),
-                small_int(2),
-                small_int(1),
-                small_int(3),
-                small_int(2),
-            ]),
-            OutboundMessage::DataRow(vec![
-                small_int(6),
-                small_int(5),
-                small_int(4),
-                small_int(6),
-                small_int(5),
-            ]),
-            OutboundMessage::DataRow(vec![
-                small_int(9),
-                small_int(8),
-                small_int(7),
-                small_int(9),
-                small_int(8),
-            ]),
+            OutboundMessage::DataRow(vec![small_int(3), small_int(2), small_int(1), small_int(3), small_int(2)]),
+            OutboundMessage::DataRow(vec![small_int(6), small_int(5), small_int(4), small_int(6), small_int(5)]),
+            OutboundMessage::DataRow(vec![small_int(9), small_int(8), small_int(7), small_int(9), small_int(8)]),
             OutboundMessage::RecordsSelected(3),
             OutboundMessage::ReadyForQuery,
         ],
@@ -223,7 +199,11 @@ fn select_different_integer_types(with_schema: TransactionManager) {
         "create table schema_name.table_name (column_si smallint, column_i integer, column_bi bigint);",
         vec![OutboundMessage::TableCreated, OutboundMessage::ReadyForQuery],
     );
-    assert_statement(&txn, "insert into schema_name.table_name values (1000, 2000000, 3000000000), (4000, 5000000, 6000000000), (7000, 8000000, 9000000000);", vec![OutboundMessage::RecordsInserted(3), OutboundMessage::ReadyForQuery]);
+    assert_statement(
+        &txn,
+        "insert into schema_name.table_name values (1000, 2000000, 3000000000), (4000, 5000000, 6000000000), (7000, 8000000, 9000000000);",
+        vec![OutboundMessage::RecordsInserted(3), OutboundMessage::ReadyForQuery],
+    );
     assert_statement(
         &txn,
         "select * from schema_name.table_name;",

@@ -41,11 +41,7 @@ impl Debug for Cursor {
 impl FromIterator<(Vec<BinaryValue>, Vec<BinaryValue>)> for Cursor {
     fn from_iter<T: IntoIterator<Item = (Vec<BinaryValue>, Vec<BinaryValue>)>>(iter: T) -> Cursor {
         Cursor {
-            source: Box::new(
-                iter.into_iter()
-                    .collect::<Vec<(Vec<BinaryValue>, Vec<BinaryValue>)>>()
-                    .into_iter(),
-            ),
+            source: Box::new(iter.into_iter().collect::<Vec<(Vec<BinaryValue>, Vec<BinaryValue>)>>().into_iter()),
         }
     }
 }
@@ -141,9 +137,7 @@ pub struct DatabaseInner {
 
 impl DatabaseInner {
     pub fn create() -> DatabaseInner {
-        let this = DatabaseInner {
-            trees: DashMap::default(),
-        };
+        let this = DatabaseInner { trees: DashMap::default() };
 
         // database bootstrap
         this.create_tree(format!("{}.{}", DEFINITION_SCHEMA, SCHEMATA_TABLE));

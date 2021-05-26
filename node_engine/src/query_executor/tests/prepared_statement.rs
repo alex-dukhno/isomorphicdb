@@ -141,10 +141,7 @@ fn prepare_with_wrong_type(with_schema: TransactionManager) {
         &mut query_plan_cache,
         &txn,
         "prepare foo_plan (i, j, k) as insert into schema_name.table_name values ($1, $2, $3)",
-        vec![
-            QueryError::type_does_not_exist("i").into(),
-            OutboundMessage::ReadyForQuery,
-        ],
+        vec![QueryError::type_does_not_exist("i").into(), OutboundMessage::ReadyForQuery],
     );
 }
 
@@ -167,10 +164,7 @@ fn prepare_with_indeterminate_type(with_schema: TransactionManager) {
         &mut query_plan_cache,
         &txn,
         "prepare foo_plan (smallint, smallint) as insert into schema_name.table_name values (1, $9)",
-        vec![
-            QueryError::indeterminate_parameter_data_type(3).into(),
-            OutboundMessage::ReadyForQuery,
-        ],
+        vec![QueryError::indeterminate_parameter_data_type(3).into(), OutboundMessage::ReadyForQuery],
     );
 }
 

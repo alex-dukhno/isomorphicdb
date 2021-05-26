@@ -32,9 +32,7 @@ fn update_number() {
         analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col", Expr::Value(number(1)))])),
         Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            assignments: vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                BigDecimal::from(1)
-            ))))],
+            assignments: vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))],
             filter: None
         }))
     );
@@ -46,9 +44,7 @@ fn update_string() {
     let transaction = db.transaction();
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-    catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))]))
-        .unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::char(5))])).unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
 
@@ -56,9 +52,7 @@ fn update_string() {
         analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col", string("str"))])),
         Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            assignments: vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
-                "str".to_owned()
-            ))))],
+            assignments: vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))],
             filter: None
         }))
     );
@@ -70,9 +64,7 @@ fn update_boolean() {
     let transaction = db.transaction();
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-    catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
 
@@ -80,9 +72,10 @@ fn update_boolean() {
         analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col", boolean(true))])),
         Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            assignments: vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(
-                true
-            )))))],
+            assignments: vec![Some(UntypedTree::UnOp {
+                op: UnOperator::Cast(SqlType::Bool),
+                item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
+            })],
             filter: None
         }))
     );
@@ -94,9 +87,7 @@ fn update_null() {
     let transaction = db.transaction();
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-    catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-        .unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
 
@@ -127,11 +118,7 @@ fn update_with_column_value() {
     let analyzer = QueryAnalyzer::from(transaction);
 
     assert_eq!(
-        analyzer.analyze(update_statement(
-            SCHEMA,
-            TABLE,
-            vec![("col_1", Expr::Column("col_2".to_owned()))]
-        )),
+        analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col_1", Expr::Column("col_2".to_owned()))])),
         Ok(UntypedQuery::Update(UntypedUpdateQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             assignments: vec![
@@ -164,11 +151,7 @@ fn update_with_column_value_that_does_not_exists() {
     let analyzer = QueryAnalyzer::from(transaction);
 
     assert_eq!(
-        analyzer.analyze(update_statement(
-            SCHEMA,
-            TABLE,
-            vec![("col_1", Expr::Column("col_3".to_owned()))]
-        )),
+        analyzer.analyze(update_statement(SCHEMA, TABLE, vec![("col_1", Expr::Column("col_3".to_owned()))])),
         Err(AnalysisError::column_not_found(&"col_3"))
     );
 }
@@ -241,13 +224,9 @@ mod multiple_values {
             Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    )))),
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
                     op: BiOperator::Arithmetic(BiArithmetic::Add),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    ))))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
                 })],
                 filter: None
             }))
@@ -275,13 +254,9 @@ mod multiple_values {
             Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
-                        "str".to_owned()
-                    )))),
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned())))),
                     op: BiOperator::StringOp(Concat),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
-                        "str".to_owned()
-                    ))))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
                 })],
                 filter: None
             }))
@@ -294,9 +269,7 @@ mod multiple_values {
         let transaction = db.transaction();
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
+        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
 
@@ -309,13 +282,9 @@ mod multiple_values {
             Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    )))),
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
                     op: BiOperator::Comparison(Comparison::Gt),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    ))))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
                 })],
                 filter: None
             }))
@@ -328,24 +297,28 @@ mod multiple_values {
         let transaction = db.transaction();
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
+        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
 
         assert_eq!(
             analyzer.analyze(update_value_as_expression_with_operation(
-                Expr::Value(Value::Boolean(true)),
+                boolean(true),
                 BinaryOperator::And,
-                Expr::Value(Value::Boolean(true)),
+                boolean(true),
             )),
             Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(true))))),
+                    left: Box::new(UntypedTree::UnOp {
+                        op: UnOperator::Cast(SqlType::Bool),
+                        item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
+                    }),
                     op: BiOperator::Logical(BiLogical::And),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(true))))),
+                    right: Box::new(UntypedTree::UnOp {
+                        op: UnOperator::Cast(SqlType::Bool),
+                        item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
+                    }),
                 })],
                 filter: None
             }))
@@ -373,13 +346,9 @@ mod multiple_values {
             Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    )))),
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
                     op: BiOperator::Bitwise(Bitwise::Or),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
-                        BigDecimal::from(1)
-                    ))))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
                 })],
                 filter: None
             }))
@@ -392,9 +361,7 @@ mod multiple_values {
         let transaction = db.transaction();
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())]))
-            .unwrap();
+        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
 
@@ -407,13 +374,9 @@ mod multiple_values {
             Ok(UntypedQuery::Update(UntypedUpdateQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
                 assignments: vec![Some(UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
-                        "s".to_owned()
-                    )))),
+                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("s".to_owned())))),
                     op: BiOperator::Matching(Matching::Like),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::String(
-                        "str".to_owned()
-                    ))))
+                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
                 })],
                 filter: None
             }))

@@ -1,0 +1,15 @@
+[package]
+name = "data_manipulation_untyped_tree_builder"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+definition = { path = "../../../definition" }
+data_manipulation_operators = { path = "../operators" }
+data_manipulation_untyped_tree = { path = "../untyped_tree" }
+query_ast = { path = "../../../postgre_sql/query_ast" }
+types = { path = "../../../types" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use query_ast::Value;
 
 #[cfg(test)]
 mod expressions;

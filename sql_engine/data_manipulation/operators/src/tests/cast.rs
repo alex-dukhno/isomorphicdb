@@ -13,6 +13,7 @@
 // limitations under the License.
 
 use super::*;
+use types::{Num, Str};
 
 #[cfg(test)]
 mod boolean {
@@ -21,27 +22,21 @@ mod boolean {
     #[test]
     fn cast_to_string() {
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::String).eval(ScalarValue::Bool(true)),
+            UnOperator::Cast(SqlType::Str { len: 4, kind: Str::Const }).eval(ScalarValue::Bool(true)),
             Ok(ScalarValue::String("true".to_owned()))
         );
     }
 
     #[test]
     fn cast_to_bool() {
-        assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::Bool).eval(ScalarValue::Bool(true)),
-            Ok(ScalarValue::Bool(true))
-        );
+        assert_eq!(UnOperator::Cast(SqlType::Bool).eval(ScalarValue::Bool(true)), Ok(ScalarValue::Bool(true)));
     }
 
     #[test]
     fn cast_to_numbers() {
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::SmallInt).eval(ScalarValue::Bool(true)),
-            Err(QueryExecutionError::cannot_coerce(
-                SqlTypeFamily::Bool,
-                SqlTypeFamily::SmallInt
-            ))
+            UnOperator::Cast(SqlType::Num(Num::SmallInt)).eval(ScalarValue::Bool(true)),
+            Err(QueryExecutionError::cannot_coerce(SqlTypeFamily::Bool, SqlTypeFamily::SmallInt))
         );
     }
 }
@@ -53,7 +48,7 @@ mod string {
     #[test]
     fn cast_to_string() {
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::String).eval(ScalarValue::String("abc".to_owned())),
+            UnOperator::Cast(SqlType::Str { len: 3, kind: Str::Const }).eval(ScalarValue::String("abc".to_owned())),
             Ok(ScalarValue::String("abc".to_owned()))
         );
     }
@@ -61,29 +56,26 @@ mod string {
     #[test]
     fn cast_to_bool() {
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::Bool).eval(ScalarValue::String("true".to_owned())),
+            UnOperator::Cast(SqlType::Bool).eval(ScalarValue::String("true".to_owned())),
             Ok(ScalarValue::Bool(true))
         );
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::Bool).eval(ScalarValue::String("abc".to_owned())),
-            Err(QueryExecutionError::invalid_text_representation(
-                SqlTypeFamily::Bool,
-                "abc".to_owned()
-            ))
+            UnOperator::Cast(SqlType::Bool).eval(ScalarValue::String("abc".to_owned())),
+            Err(QueryExecutionError::invalid_text_representation(SqlTypeFamily::Bool, "abc".to_owned()))
         );
     }
 
     #[test]
     fn cast_to_numbers() {
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::SmallInt).eval(ScalarValue::String("123".to_owned())),
+            UnOperator::Cast(SqlType::Num(Num::SmallInt)).eval(ScalarValue::String("123".to_owned())),
             Ok(ScalarValue::Num {
                 value: BigDecimal::from(123),
                 type_family: SqlTypeFamily::SmallInt
             })
         );
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::SmallInt).eval(ScalarValue::String("abc".to_owned())),
+            UnOperator::Cast(SqlType::Num(Num::SmallInt)).eval(ScalarValue::String("abc".to_owned())),
             Err(QueryExecutionError::invalid_text_representation(
                 SqlTypeFamily::SmallInt,
                 "abc".to_owned()
@@ -99,7 +91,7 @@ mod numbers {
     #[test]
     fn cast_to_string() {
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::String).eval(ScalarValue::Num {
+            UnOperator::Cast(SqlType::Str { len: 3, kind: Str::Const }).eval(ScalarValue::Num {
                 value: BigDecimal::from(123),
                 type_family: SqlTypeFamily::SmallInt
             }),
@@ -110,14 +102,14 @@ mod numbers {
     #[test]
     fn cast_to_bool() {
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::Bool).eval(ScalarValue::Num {
+            UnOperator::Cast(SqlType::Bool).eval(ScalarValue::Num {
                 value: BigDecimal::from(123),
                 type_family: SqlTypeFamily::SmallInt
             }),
             Ok(ScalarValue::Bool(true))
         );
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::Bool).eval(ScalarValue::Num {
+            UnOperator::Cast(SqlType::Bool).eval(ScalarValue::Num {
                 value: BigDecimal::from(0),
                 type_family: SqlTypeFamily::SmallInt
             }),
@@ -128,7 +120,7 @@ mod numbers {
     #[test]
     fn cast_to_numbers() {
         assert_eq!(
-            UnOperator::Cast(SqlTypeFamily::SmallInt).eval(ScalarValue::Num {
+            UnOperator::Cast(SqlType::small_int()).eval(ScalarValue::Num {
                 value: BigDecimal::from(123),
                 type_family: SqlTypeFamily::SmallInt
             }),

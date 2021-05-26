@@ -234,10 +234,7 @@ fn update_non_existent_columns_of_records(with_schema: TransactionManager) {
     assert_statement(
         &txn,
         "update schema_name.table_name set col1=456, col2=789;",
-        vec![
-            QueryError::column_does_not_exist("col1").into(),
-            OutboundMessage::ReadyForQuery,
-        ],
+        vec![QueryError::column_does_not_exist("col1").into(), OutboundMessage::ReadyForQuery],
     );
     txn.commit();
 }
@@ -294,16 +291,8 @@ fn test_update_with_dynamic_expression(with_schema: TransactionManager) {
                 ("si_column_3".to_owned(), SMALLINT),
             ]),
             OutboundMessage::DataRow(vec![small_int(2), small_int(2 * (1 + 2)), small_int(3 + (2 * (1 + 2)))]),
-            OutboundMessage::DataRow(vec![
-                small_int(2 * 4),
-                small_int(2 * (4 + 5)),
-                small_int(6 + (2 * (4 + 5))),
-            ]),
-            OutboundMessage::DataRow(vec![
-                small_int(2 * 7),
-                small_int(2 * (7 + 8)),
-                small_int(9 + (2 * (7 + 8))),
-            ]),
+            OutboundMessage::DataRow(vec![small_int(2 * 4), small_int(2 * (4 + 5)), small_int(6 + (2 * (4 + 5)))]),
+            OutboundMessage::DataRow(vec![small_int(2 * 7), small_int(2 * (7 + 8)), small_int(9 + (2 * (7 + 8)))]),
             OutboundMessage::RecordsSelected(3),
             OutboundMessage::ReadyForQuery,
         ],
@@ -856,8 +845,7 @@ mod operators {
                 &txn,
                 "update schema_name.table_name set strings = 1 || 2;",
                 vec![
-                    QueryError::undefined_function("||".to_owned(), "smallint".to_owned(), "smallint".to_owned())
-                        .into(),
+                    QueryError::undefined_function("||".to_owned(), "integer".to_owned(), "integer".to_owned()).into(),
                     OutboundMessage::ReadyForQuery,
                 ],
             );

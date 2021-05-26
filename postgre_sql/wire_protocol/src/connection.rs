@@ -22,9 +22,7 @@ use std::{
     net::TcpStream,
     str,
 };
-use wire_protocol_payload::{
-    InboundMessage, OutboundMessage, BIND, CLOSE, DESCRIBE, EXECUTE, FLUSH, PARSE, QUERY, SYNC, TERMINATE,
-};
+use wire_protocol_payload::{InboundMessage, OutboundMessage, BIND, CLOSE, DESCRIBE, EXECUTE, FLUSH, PARSE, QUERY, SYNC, TERMINATE};
 
 const ACCEPT_SSL: u8 = b'S';
 const REJECT_SSL: u8 = b'N';
@@ -247,11 +245,7 @@ impl<P: Plain, S: Secure> Connection<Authenticated, P, S> {
 }
 
 impl<P: Plain, S: Secure> Connection<AllocateBackendKey, P, S> {
-    pub fn send_backend_keys(
-        mut self,
-        conn_id: u32,
-        conn_secret_key: u32,
-    ) -> io::Result<Connection<Established, P, S>> {
+    pub fn send_backend_keys(mut self, conn_id: u32, conn_secret_key: u32) -> io::Result<Connection<Established, P, S>> {
         self.channel.write_all(&[BACKEND_KEY_DATA])?;
         self.channel.write_all(&12i32.to_be_bytes())?;
         self.channel.write_all(&conn_id.to_be_bytes())?;

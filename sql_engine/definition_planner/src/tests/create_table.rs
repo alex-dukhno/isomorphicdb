@@ -89,11 +89,7 @@ fn successfully_create_table() {
 
     let planner = DefinitionPlanner::from(transaction);
     assert_eq!(
-        planner.plan(create_table(
-            SCHEMA,
-            TABLE,
-            vec![column("column_name", DataType::SmallInt)],
-        )),
+        planner.plan(create_table(SCHEMA, TABLE, vec![column("column_name", DataType::SmallInt)],)),
         Ok(SchemaChange::CreateTable(CreateTableQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_defs: vec![ColumnInfo {

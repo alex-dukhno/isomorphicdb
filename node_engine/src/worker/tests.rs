@@ -64,10 +64,7 @@ fn single_create_schema_request() {
 
     worker.process(&mut connection, Database::new("IN_MEMORY"));
 
-    assert_eq!(
-        connection.outbound,
-        vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery]
-    );
+    assert_eq!(connection.outbound, vec![OutboundMessage::SchemaCreated, OutboundMessage::ReadyForQuery]);
 }
 
 #[test]
@@ -99,18 +96,14 @@ fn transaction_per_query() {
 #[test]
 fn multiple_ddl_in_single_transaction() {
     let mut connection = MockConnection::new(vec![
-        InboundMessage::Query {
-            sql: "begin".to_owned(),
-        },
+        InboundMessage::Query { sql: "begin".to_owned() },
         InboundMessage::Query {
             sql: "create schema schema_name;".to_owned(),
         },
         InboundMessage::Query {
             sql: "create table schema_name.table_name (col1 smallint);".to_owned(),
         },
-        InboundMessage::Query {
-            sql: "commit".to_owned(),
-        },
+        InboundMessage::Query { sql: "commit".to_owned() },
     ]);
 
     let worker = Worker;
@@ -135,42 +128,30 @@ fn multiple_ddl_in_single_transaction() {
 #[test]
 fn prepare_and_execute_multiple_times_in_single_transaction() {
     let mut connection = MockConnection::new(vec![
-        InboundMessage::Query {
-            sql: "begin".to_owned(),
-        },
+        InboundMessage::Query { sql: "begin".to_owned() },
         InboundMessage::Query {
             sql: "create schema schema_name;".to_owned(),
         },
         InboundMessage::Query {
             sql: "create table schema_name.table_name (col1 smallint);".to_owned(),
         },
-        InboundMessage::Query {
-            sql: "commit".to_owned(),
-        },
-        InboundMessage::Query {
-            sql: "begin".to_owned(),
-        },
+        InboundMessage::Query { sql: "commit".to_owned() },
+        InboundMessage::Query { sql: "begin".to_owned() },
         InboundMessage::Query {
             sql: "prepare plan (smallint) as insert into schema_name.table_name values ($1)".to_owned(),
         },
         InboundMessage::Query {
             sql: "execute plan (1)".to_owned(),
         },
-        InboundMessage::Query {
-            sql: "commit".to_owned(),
-        },
-        InboundMessage::Query {
-            sql: "begin".to_owned(),
-        },
+        InboundMessage::Query { sql: "commit".to_owned() },
+        InboundMessage::Query { sql: "begin".to_owned() },
         InboundMessage::Query {
             sql: "execute plan (1)".to_owned(),
         },
         InboundMessage::Query {
             sql: "select * from schema_name.table_name".to_owned(),
         },
-        InboundMessage::Query {
-            sql: "commit".to_owned(),
-        },
+        InboundMessage::Query { sql: "commit".to_owned() },
     ]);
 
     let node_engine = Worker;

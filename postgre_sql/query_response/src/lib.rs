@@ -374,20 +374,12 @@ impl Display for QueryErrorKind {
                 pg_type,
                 column_name,
                 row_index,
-            } => write!(
-                f,
-                "{} is out of range for column '{}' at row {}",
-                pg_type, column_name, row_index
-            ),
+            } => write!(f, "{} is out of range for column '{}' at row {}", pg_type, column_name, row_index),
             Self::NumericTypeOutOfRange2 {
                 pg_type,
                 column_name,
                 row_index,
-            } => write!(
-                f,
-                "{} is out of range for column '{}' at row {}",
-                pg_type, column_name, row_index
-            ),
+            } => write!(f, "{} is out of range for column '{}' at row {}", pg_type, column_name, row_index),
             Self::MostSpecificTypeMismatch {
                 pg_type,
                 value,
@@ -422,11 +414,7 @@ impl Display for QueryErrorKind {
                 operator,
                 left_type,
                 right_type,
-            } => write!(
-                f,
-                "operator does not exist: ({} {} {})",
-                left_type, operator, right_type
-            ),
+            } => write!(f, "operator does not exist: ({} {} {})", left_type, operator, right_type),
             Self::AmbiguousColumnName { column } => write!(f, "use of ambiguous column name in context: '{}'", column),
             Self::UndefinedColumn { column } => write!(f, "use of undefined column: '{}'", column),
             Self::SyntaxError(expression) => write!(f, "syntax error: {}", expression),
@@ -441,11 +429,7 @@ impl Display for QueryErrorKind {
                 op,
                 target_type,
                 actual_type,
-            } => write!(
-                f,
-                "argument of {} must be type {}, not type {}",
-                op, target_type, actual_type
-            ),
+            } => write!(f, "argument of {} must be type {}, not type {}", op, target_type, actual_type),
             Self::InvalidArgumentForPowerFunction => write!(f, "cannot take square root of a negative number"),
             Self::CannotCoerce(from_type, to_type) => write!(f, "cannot cast type {} to {}", from_type, to_type),
         }
@@ -638,9 +622,7 @@ impl QueryError {
     pub fn ambiguous_column<S: ToString>(column: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::AmbiguousColumnName {
-                column: column.to_string(),
-            },
+            kind: QueryErrorKind::AmbiguousColumnName { column: column.to_string() },
         }
     }
 
@@ -648,9 +630,7 @@ impl QueryError {
     pub fn undefined_column<S: ToString>(column: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::UndefinedColumn {
-                column: column.to_string(),
-            },
+            kind: QueryErrorKind::UndefinedColumn { column: column.to_string() },
         }
     }
 
@@ -690,12 +670,7 @@ impl QueryError {
     }
 
     /// type mismatch constructor
-    pub fn most_specific_type_mismatch<S: ToString>(
-        value: S,
-        pg_type: u32,
-        column_name: S,
-        row_index: usize,
-    ) -> QueryError {
+    pub fn most_specific_type_mismatch<S: ToString>(value: S, pg_type: u32, column_name: S, row_index: usize) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::MostSpecificTypeMismatch {
@@ -708,12 +683,7 @@ impl QueryError {
     }
 
     /// type mismatch constructor
-    pub fn most_specific_type_mismatch2(
-        value: String,
-        pg_type: String,
-        column_name: String,
-        row_index: usize,
-    ) -> QueryError {
+    pub fn most_specific_type_mismatch2(value: String, pg_type: String, column_name: String, row_index: usize) -> QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::MostSpecificTypeMismatch2 {

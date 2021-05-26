@@ -75,8 +75,7 @@ mod operators {
         case::bitwise_shift_right(BinaryOperator::BitwiseShiftRight, ">>")
     )]
     fn binary(expected: BinaryOperator, tested: &str) {
-        let statements =
-            QUERY_PARSER.parse(format!("insert into schema_name.table_name values (123 {} 456);", tested).as_str());
+        let statements = QUERY_PARSER.parse(format!("insert into schema_name.table_name values (123 {} 456);", tested).as_str());
 
         assert_eq!(
             statements,
@@ -106,8 +105,7 @@ mod operators {
         case::abs(UnaryOperator::Abs, "@")
     )]
     fn prefix_unary(expected: UnaryOperator, tested: &str) {
-        let statements =
-            QUERY_PARSER.parse(format!("insert into schema_name.table_name values ({}(123 + 456));", tested).as_str());
+        let statements = QUERY_PARSER.parse(format!("insert into schema_name.table_name values ({}(123 + 456));", tested).as_str());
 
         assert_eq!(
             statements,

@@ -27,10 +27,7 @@ mod schemaless {
         assert_statement(
             &txn,
             "create table schema_name.table_name (column_name smallint);",
-            vec![
-                QueryError::schema_does_not_exist("schema_name").into(),
-                OutboundMessage::ReadyForQuery,
-            ],
+            vec![QueryError::schema_does_not_exist("schema_name").into(), OutboundMessage::ReadyForQuery],
         );
         txn.commit();
     }
@@ -44,10 +41,7 @@ mod schemaless {
         assert_statement(
             &txn,
             "drop table schema_name.table_name;",
-            vec![
-                QueryError::schema_does_not_exist("schema_name").into(),
-                OutboundMessage::ReadyForQuery,
-            ],
+            vec![QueryError::schema_does_not_exist("schema_name").into(), OutboundMessage::ReadyForQuery],
         );
         txn.commit();
     }

@@ -115,11 +115,7 @@ pub struct ColumnDef {
 
 impl ColumnDef {
     pub fn new(name: String, sql_type: SqlType, ord_num: usize) -> ColumnDef {
-        ColumnDef {
-            name,
-            sql_type,
-            ord_num,
-        }
+        ColumnDef { name, sql_type, ord_num }
     }
 
     pub fn name(&self) -> &str {
@@ -147,10 +143,7 @@ pub struct TableDef {
 
 impl TableDef {
     pub fn new(full_table_name: FullTableName, columns: Vec<ColumnDef>) -> TableDef {
-        TableDef {
-            full_table_name,
-            columns,
-        }
+        TableDef { full_table_name, columns }
     }
 
     pub fn columns(&self) -> &[ColumnDef] {

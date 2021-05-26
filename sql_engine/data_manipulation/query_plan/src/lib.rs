@@ -43,9 +43,7 @@ impl From<QueryExecutionResult> for Vec<QueryEvent> {
                 let mut events = vec![QueryEvent::RowDescription(desc)];
                 let len = data.len();
                 for row in data {
-                    events.push(QueryEvent::DataRow(
-                        row.into_iter().map(|scalar| scalar.as_text()).collect(),
-                    ));
+                    events.push(QueryEvent::DataRow(row.into_iter().map(|scalar| scalar.as_text()).collect()));
                 }
                 events.push(QueryEvent::RecordsSelected(len));
                 events
@@ -65,18 +63,10 @@ pub enum QueryPlan {
 impl QueryPlan {
     pub fn execute(self, param_values: Vec<ScalarValue>) -> Result<QueryExecutionResult, QueryExecutionError> {
         match self {
-            QueryPlan::Insert(insert_query_plan) => insert_query_plan
-                .execute(param_values)
-                .map(QueryExecutionResult::Inserted),
-            QueryPlan::Delete(delete_query_plan) => delete_query_plan
-                .execute(param_values)
-                .map(QueryExecutionResult::Deleted),
-            QueryPlan::Update(update_query_plan) => update_query_plan
-                .execute(param_values)
-                .map(QueryExecutionResult::Updated),
-            QueryPlan::Select(select_query_plan) => select_query_plan
-                .execute(param_values)
-                .map(QueryExecutionResult::Selected),
+            QueryPlan::Insert(insert_query_plan) => insert_query_plan.execute(param_values).map(QueryExecutionResult::Inserted),
+            QueryPlan::Delete(delete_query_plan) => delete_query_plan.execute(param_values).map(QueryExecutionResult::Deleted),
+            QueryPlan::Update(update_query_plan) => update_query_plan.execute(param_values).map(QueryExecutionResult::Updated),
+            QueryPlan::Select(select_query_plan) => select_query_plan.execute(param_values).map(QueryExecutionResult::Selected),
         }
     }
 }
@@ -164,12 +154,7 @@ impl Flow for ConstraintValidator {
                         None => unimplemented!(),
                         Some(value_type) => match value_type.compare(&type_family) {
                             Ok(wide_type_family) => {
-                                log::debug!(
-                                    "ConstraintValidator {:?} {:?} {:?}",
-                                    value,
-                                    wide_type_family,
-                                    type_family
-                                );
+                                log::debug!("ConstraintValidator {:?} {:?} {:?}", value, wide_type_family, type_family);
                                 match (value.clone(), type_family) {
                                     (ScalarValue::Num { value, .. }, SqlTypeFamily::SmallInt) => {
                                         if !(BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX)).contains(&value) {
@@ -225,10 +210,7 @@ pub struct InsertQueryPlan {
 }
 
 impl InsertQueryPlan {
-    pub fn new(
-        source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>)>>,
-        table: TableRef,
-    ) -> InsertQueryPlan {
+    pub fn new(source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<Option<ScalarValue>>)>>, table: TableRef) -> InsertQueryPlan {
         InsertQueryPlan { source, table }
     }
 
@@ -252,10 +234,7 @@ pub struct Filter {
 }
 
 impl Filter {
-    pub fn new(
-        source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
-        predicate: Option<TypedTree>,
-    ) -> Box<Filter> {
+    pub fn new(source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>, predicate: Option<TypedTree>) -> Box<Filter> {
         Box::new(Filter { source, predicate })
     }
 }
@@ -548,10 +527,7 @@ impl SelectQueryPlan {
         }
     }
 
-    pub fn execute(
-        mut self,
-        param_values: Vec<ScalarValue>,
-    ) -> Result<(Vec<(String, u32)>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
+    pub fn execute(mut self, param_values: Vec<ScalarValue>) -> Result<(Vec<(String, u32)>, Vec<Vec<ScalarValue>>), QueryExecutionError> {
         log::debug!("COLUMNS TO SELECT {:?}", self.columns);
         let mut column_defs = vec![];
         let columns = self
