@@ -14,7 +14,6 @@
 
 use super::*;
 use query_ast::Value;
-use types::Str;
 
 #[test]
 fn string_literal() {
