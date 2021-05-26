@@ -65,4 +65,10 @@ fn numeric() {
             BigDecimal::from_str("9223372036854775808").unwrap()
         ))))
     );
+    assert_eq!(
+        TreeBuilder::insert_position(Expr::Value(Value::Number("92233.72036854775808".to_owned()))),
+        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+            BigDecimal::from_str("92233.72036854775808").unwrap()
+        ))))
+    );
 }
