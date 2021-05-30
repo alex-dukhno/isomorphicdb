@@ -22,9 +22,9 @@ mod unary_minus {
     #[test]
     fn with_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32767),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -37,9 +37,9 @@ mod unary_minus {
         );
 
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32768),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -55,11 +55,11 @@ mod unary_minus {
     #[test]
     fn doubly_applied() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(TypedTree::UnOp {
+                item: Box::new(TypedTreeOld::UnOp {
                     op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                    item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                    item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                         value: BigDecimal::from(32767),
                         type_family: SqlTypeFamily::Integer
                     }))),
@@ -73,11 +73,11 @@ mod unary_minus {
         );
 
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(TypedTree::UnOp {
+                item: Box::new(TypedTreeOld::UnOp {
                     op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                    item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                    item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                         value: BigDecimal::from(32768),
                         type_family: SqlTypeFamily::Integer
                     }))),
@@ -94,9 +94,9 @@ mod unary_minus {
     #[test]
     fn with_string() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned()))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -109,9 +109,9 @@ mod unary_minus {
     #[test]
     fn with_boolean() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -129,9 +129,9 @@ mod unary_plus {
     #[test]
     fn with_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Pos),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32767),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -144,9 +144,9 @@ mod unary_plus {
         );
 
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Pos),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32768),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -162,9 +162,9 @@ mod unary_plus {
     #[test]
     fn with_string() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Pos),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned()))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -177,9 +177,9 @@ mod unary_plus {
     #[test]
     fn with_boolean() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Pos),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -197,9 +197,9 @@ mod unary_not {
     #[test]
     fn with_bool() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::LogicalNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true)))),
             }
             .eval(&[], &[]),
             Ok(ScalarValue::Bool(false))
@@ -209,9 +209,9 @@ mod unary_not {
     #[test]
     fn with_number() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::LogicalNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(0),
                     type_family: SqlTypeFamily::SmallInt
                 }))),
@@ -228,9 +228,9 @@ mod unary_not {
     #[test]
     fn with_string() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::LogicalNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned())))),
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned())))),
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::datatype_mismatch(
@@ -249,9 +249,9 @@ mod unary_bitwise_not {
     #[test]
     fn with_integers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::BitwiseNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(1),
                     type_family: SqlTypeFamily::SmallInt
                 }))),
@@ -264,9 +264,9 @@ mod unary_bitwise_not {
         );
 
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::BitwiseNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(i32::MAX - i16::MAX as i32),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -279,9 +279,9 @@ mod unary_bitwise_not {
         );
 
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::BitwiseNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(i64::MAX - i32::MAX as i64),
                     type_family: SqlTypeFamily::BigInt
                 }))),
@@ -297,9 +297,9 @@ mod unary_bitwise_not {
     #[test]
     fn with_float_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::BitwiseNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(1),
                     type_family: SqlTypeFamily::Real
                 }))),
@@ -309,9 +309,9 @@ mod unary_bitwise_not {
         );
 
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::BitwiseNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(i32::MAX - i16::MAX as i32),
                     type_family: SqlTypeFamily::Double
                 }))),
@@ -324,9 +324,9 @@ mod unary_bitwise_not {
     #[test]
     fn with_string() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::BitwiseNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned())))),
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned())))),
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::String))
@@ -336,9 +336,9 @@ mod unary_bitwise_not {
     #[test]
     fn with_boolean() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::BitwiseNot,
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Bool))
@@ -353,9 +353,9 @@ mod square_root {
     #[test]
     fn with_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::SquareRoot),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32768),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -371,9 +371,9 @@ mod square_root {
     #[test]
     fn with_negative_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::SquareRoot),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(-32768),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -386,9 +386,9 @@ mod square_root {
     #[test]
     fn with_string() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::SquareRoot),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned()))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -401,9 +401,9 @@ mod square_root {
     #[test]
     fn with_boolean() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::SquareRoot),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -421,9 +421,9 @@ mod cube_root {
     #[test]
     fn with_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::CubeRoot),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32768),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -439,9 +439,9 @@ mod cube_root {
     #[test]
     fn with_string() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::CubeRoot),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned()))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -454,9 +454,9 @@ mod cube_root {
     #[test]
     fn with_boolean() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::CubeRoot),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -474,9 +474,9 @@ mod factorial {
     #[test]
     fn with_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(3),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -492,9 +492,9 @@ mod factorial {
     #[test]
     fn with_negative_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(-3),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -510,9 +510,9 @@ mod factorial {
     #[test]
     fn with_float_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(1),
                     type_family: SqlTypeFamily::Real
                 }))),
@@ -525,9 +525,9 @@ mod factorial {
         );
 
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(i32::MAX - i16::MAX as i32),
                     type_family: SqlTypeFamily::Double
                 }))),
@@ -543,9 +543,9 @@ mod factorial {
     #[test]
     fn with_string() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned()))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -558,9 +558,9 @@ mod factorial {
     #[test]
     fn with_boolean() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -578,9 +578,9 @@ mod absolute_value {
     #[test]
     fn with_positive_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Abs),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(3),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -596,9 +596,9 @@ mod absolute_value {
     #[test]
     fn with_negative_numbers() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Abs),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(-3),
                     type_family: SqlTypeFamily::Integer
                 }))),
@@ -614,9 +614,9 @@ mod absolute_value {
     #[test]
     fn with_string() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Abs),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned()))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(
@@ -629,9 +629,9 @@ mod absolute_value {
     #[test]
     fn with_boolean() {
         assert_eq!(
-            TypedTree::UnOp {
+            TypedTreeOld::UnOp {
                 op: UnOperator::Arithmetic(UnArithmetic::Abs),
-                item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))))
+                item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::undefined_function(

@@ -8,4 +8,9 @@ publish = false
 [dependencies]
 operators = { path = "../../../inter_reprs/operators" }
 typed_tree = { path = "../../../inter_reprs/typed_tree" }
+checked_tree = { path = "../../../inter_reprs/checked_tree" }
+exec_tree = { path = "../../../inter_reprs/exec_tree" }
 types = { path = "../../../types" }
+query_response = { path = "../../../postgre_sql/query_response" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

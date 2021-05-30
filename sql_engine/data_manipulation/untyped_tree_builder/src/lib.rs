@@ -12,16 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
 use definition::ColumnDef;
 use operators::{BiOperator, UnOperator};
 use query_ast::{BinaryOperator, Expr, Value};
-use std::str::FromStr;
 use types::SqlType;
 use untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
-
-const MAX_BIG_INT: &str = "9223372036854775807";
-const MIN_BIG_INT: &str = "-9223372036854775808";
 
 pub struct TreeBuilder;
 
@@ -107,18 +102,7 @@ impl TreeBuilder {
             Value::Int(num) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(num))),
             Value::String(string) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(string))),
             Value::Null => UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)),
-            Value::Number(num) if num.contains('.') => {
-                UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from_str(&num).unwrap())))
-            }
-            Value::Number(num) => {
-                if (num.starts_with('-') && num.len() < MIN_BIG_INT.len() || num.len() == MIN_BIG_INT.len() && num.as_str() <= MIN_BIG_INT)
-                    || (num.len() < MAX_BIG_INT.len() || num.len() == MAX_BIG_INT.len() && num.as_str() <= MAX_BIG_INT)
-                {
-                    UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(num.parse().unwrap())))
-                } else {
-                    UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(BigDecimal::from_str(&num).unwrap())))
-                }
-            }
+            Value::Number(num) => UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(num))),
         }
     }
 }

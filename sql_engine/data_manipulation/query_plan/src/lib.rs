@@ -22,7 +22,7 @@ use query_result::QueryExecutionError;
 use scalar::ScalarValue;
 use std::collections::HashMap;
 use storage::{Cursor, TableRef};
-use typed_tree::TypedTree;
+use typed_tree::TypedTreeOld;
 use types::{SqlType, SqlTypeFamily};
 
 #[derive(Debug, PartialEq)]
@@ -77,16 +77,16 @@ pub trait Flow {
     fn next_tuple(&mut self, param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError>;
 }
 
-pub struct StaticValues(Box<dyn Iterator<Item = Vec<Option<TypedTree>>>>);
+pub struct StaticValues(Box<dyn Iterator<Item = Vec<Option<TypedTreeOld>>>>);
 
 impl StaticValues {
-    pub fn new(values: Vec<Vec<Option<TypedTree>>>) -> Box<StaticValues> {
+    pub fn new(values: Vec<Vec<Option<TypedTreeOld>>>) -> Box<StaticValues> {
         Box::new(StaticValues(Box::new(values.into_iter())))
     }
 }
 
 impl Flow for StaticValues {
-    type Output = Vec<Option<TypedTree>>;
+    type Output = Vec<Option<TypedTreeOld>>;
 
     fn next_tuple(&mut self, _param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         Ok(self.0.next())
@@ -94,11 +94,11 @@ impl Flow for StaticValues {
 }
 
 pub struct StaticExpressionEval {
-    source: Box<dyn Flow<Output = Vec<Option<TypedTree>>>>,
+    source: Box<dyn Flow<Output = Vec<Option<TypedTreeOld>>>>,
 }
 
 impl StaticExpressionEval {
-    pub fn new(source: Box<dyn Flow<Output = Vec<Option<TypedTree>>>>) -> Box<StaticExpressionEval> {
+    pub fn new(source: Box<dyn Flow<Output = Vec<Option<TypedTreeOld>>>>) -> Box<StaticExpressionEval> {
         Box::new(StaticExpressionEval { source })
     }
 }
@@ -230,11 +230,11 @@ impl InsertQueryPlan {
 
 pub struct Filter {
     source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
-    predicate: Option<TypedTree>,
+    predicate: Option<TypedTreeOld>,
 }
 
 impl Filter {
-    pub fn new(source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>, predicate: Option<TypedTree>) -> Box<Filter> {
+    pub fn new(source: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>, predicate: Option<TypedTreeOld>) -> Box<Filter> {
         Box::new(Filter { source, predicate })
     }
 }
@@ -379,17 +379,17 @@ impl DeleteQueryPlan {
 }
 
 pub struct Repeater {
-    source: Vec<Option<TypedTree>>,
+    source: Vec<Option<TypedTreeOld>>,
 }
 
 impl Repeater {
-    pub fn new(source: Vec<Option<TypedTree>>) -> Box<Repeater> {
+    pub fn new(source: Vec<Option<TypedTreeOld>>) -> Box<Repeater> {
         Box::new(Repeater { source })
     }
 }
 
 impl Flow for Repeater {
-    type Output = Vec<Option<TypedTree>>;
+    type Output = Vec<Option<TypedTreeOld>>;
 
     fn next_tuple(&mut self, _param_values: &[ScalarValue]) -> Result<Option<Self::Output>, QueryExecutionError> {
         Ok(Some(self.source.clone()))
@@ -397,13 +397,13 @@ impl Flow for Repeater {
 }
 
 pub struct DynamicValues {
-    source: Box<dyn Flow<Output = Vec<Option<TypedTree>>>>,
+    source: Box<dyn Flow<Output = Vec<Option<TypedTreeOld>>>>,
     records: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
 }
 
 impl DynamicValues {
     pub fn new(
-        source: Box<dyn Flow<Output = Vec<Option<TypedTree>>>>,
+        source: Box<dyn Flow<Output = Vec<Option<TypedTreeOld>>>>,
         records: Box<dyn Flow<Output = (Vec<ScalarValue>, Vec<ScalarValue>)>>,
     ) -> Box<DynamicValues> {
         Box::new(DynamicValues { source, records })

@@ -158,10 +158,18 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 [[package]]
 name = "checked_queries"
 version = "0.1.0"
+dependencies = [
+ "checked_tree",
+ "definition",
+]
 
 [[package]]
 name = "checked_tree"
 version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "operators",
+]
 
 [[package]]
 name = "clang-sys"
@@ -315,10 +323,18 @@ dependencies = [
 [[package]]
 name = "exec_queries"
 version = "0.1.0"
+dependencies = [
+ "definition",
+ "exec_tree",
+]
 
 [[package]]
 name = "exec_tree"
 version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "operators",
+]
 
 [[package]]
 name = "fallible-iterator"
@@ -1037,8 +1053,10 @@ dependencies = [
 name = "query_processing_type_check"
 version = "0.1.0"
 dependencies = [
+ "bigdecimal",
  "checked_tree",
  "operators",
+ "query_response",
  "typed_tree",
  "types",
 ]
@@ -1047,7 +1065,11 @@ dependencies = [
 name = "query_processing_type_coercion"
 version = "0.1.0"
 dependencies = [
+ "bigdecimal",
+ "checked_tree",
+ "exec_tree",
  "operators",
+ "query_response",
  "typed_tree",
  "types",
 ]
@@ -1059,6 +1081,7 @@ dependencies = [
  "bigdecimal",
  "log",
  "operators",
+ "query_response",
  "typed_tree",
  "types",
  "untyped_tree",

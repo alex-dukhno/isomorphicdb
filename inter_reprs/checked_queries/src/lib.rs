@@ -1,7 +1,50 @@
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
+// Copyright 2020 - 2021 Alex Dukhno
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use checked_tree::CheckedTree;
+use definition::FullTableName;
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CheckedInsertQuery {
+    pub full_table_name: FullTableName,
+    pub values: Vec<Vec<Option<CheckedTree>>>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CheckedDeleteQuery {
+    pub full_table_name: FullTableName,
+    pub filter: Option<CheckedTree>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CheckedUpdateQuery {
+    pub full_table_name: FullTableName,
+    pub assignments: Vec<Option<CheckedTree>>,
+    pub filter: Option<CheckedTree>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CheckedSelectQuery {
+    pub full_table_name: FullTableName,
+    pub projection_items: Vec<CheckedTree>,
+    pub filter: Option<CheckedTree>,
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum CheckedQuery {
+    Insert(CheckedInsertQuery),
+    Delete(CheckedDeleteQuery),
+    Update(CheckedUpdateQuery),
+    Select(CheckedSelectQuery),
 }

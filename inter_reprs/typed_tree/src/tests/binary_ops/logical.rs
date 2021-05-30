@@ -25,11 +25,11 @@ use operators::BiLogical;
 )]
 fn boolean_and_boolean(operator: BiOperator, left: bool, right: bool, result: bool) {
     assert_eq!(
-        TypedTree::BiOp {
+        TypedTreeOld::BiOp {
             type_family: SqlTypeFamily::SmallInt,
-            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(left)))),
+            left: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(left)))),
             op: operator,
-            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(right)))),
+            right: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(right)))),
         }
         .eval(&[], &[]),
         Ok(ScalarValue::Bool(result))
@@ -39,14 +39,14 @@ fn boolean_and_boolean(operator: BiOperator, left: bool, right: bool, result: bo
 #[rstest::rstest(operator, case::and(BiOperator::Logical(BiLogical::And)), case::or(BiOperator::Logical(BiLogical::Or)))]
 fn number_and_boolean(operator: BiOperator) {
     assert_eq!(
-        TypedTree::BiOp {
+        TypedTreeOld::BiOp {
             type_family: SqlTypeFamily::Bool,
-            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+            left: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             }))),
             op: operator,
-            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
+            right: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true)))),
         }
         .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
@@ -57,11 +57,11 @@ fn number_and_boolean(operator: BiOperator) {
     );
 
     assert_eq!(
-        TypedTree::BiOp {
+        TypedTreeOld::BiOp {
             type_family: SqlTypeFamily::Bool,
-            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
+            left: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true)))),
             op: operator,
-            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+            right: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             }))),
@@ -78,11 +78,11 @@ fn number_and_boolean(operator: BiOperator) {
 #[rstest::rstest(operator, case::and(BiOperator::Logical(BiLogical::And)), case::or(BiOperator::Logical(BiLogical::Or)))]
 fn boolean_and_string(operator: BiOperator) {
     assert_eq!(
-        TypedTree::BiOp {
+        TypedTreeOld::BiOp {
             type_family: SqlTypeFamily::Integer,
-            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
+            left: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true)))),
             op: operator,
-            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
+            right: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("abc".to_owned())))),
         }
         .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
@@ -93,11 +93,11 @@ fn boolean_and_string(operator: BiOperator) {
     );
 
     assert_eq!(
-        TypedTree::BiOp {
+        TypedTreeOld::BiOp {
             type_family: SqlTypeFamily::Bool,
-            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
+            left: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("abc".to_owned())))),
             op: operator,
-            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Bool(true)))),
+            right: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true)))),
         }
         .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(
@@ -111,11 +111,11 @@ fn boolean_and_string(operator: BiOperator) {
 #[rstest::rstest(operator, case::and(BiOperator::Logical(BiLogical::And)), case::or(BiOperator::Logical(BiLogical::Or)))]
 fn others(operator: BiOperator) {
     assert_eq!(
-        TypedTree::BiOp {
+        TypedTreeOld::BiOp {
             type_family: SqlTypeFamily::Bool,
-            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
+            left: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("abc".to_owned())))),
             op: operator,
-            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+            right: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             }))),
@@ -129,14 +129,14 @@ fn others(operator: BiOperator) {
     );
 
     assert_eq!(
-        TypedTree::BiOp {
+        TypedTreeOld::BiOp {
             type_family: SqlTypeFamily::Integer,
-            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Num {
+            left: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                 value: BigDecimal::from(32767),
                 type_family: SqlTypeFamily::Integer
             }))),
             op: operator,
-            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::String("abc".to_owned())))),
+            right: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("abc".to_owned())))),
         }
         .eval(&[], &[]),
         Err(QueryExecutionError::undefined_bi_function(

@@ -12,21 +12,53 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use checked_tree::CheckedTree;
-use typed_tree::TypedTree;
+use bigdecimal::BigDecimal;
+use checked_tree::{CheckedItem, CheckedTree, CheckedValue};
+use query_response::QueryError;
+use typed_tree::TypedTreeOld;
+use typed_tree::{TypedItem, TypedTree, TypedValue};
 
 pub struct TypeCheckerOld;
 
 impl TypeCheckerOld {
-    pub fn type_check(&self, tree: TypedTree) -> TypedTree {
+    pub fn type_check(&self, tree: TypedTreeOld) -> TypedTreeOld {
         tree
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct TypeCheckError;
+
+impl From<TypeCheckError> for QueryError {
+    fn from(_error: TypeCheckError) -> QueryError {
+        unimplemented!()
     }
 }
 
 pub struct TypeChecker;
 
 impl TypeChecker {
-    pub fn type_check(&self, _tree: TypedTree) -> CheckedTree {
-        CheckedTree
+    pub fn type_check(&self, tree: TypedTree) -> Result<CheckedTree, TypeCheckError> {
+        match tree {
+            TypedTree::Item(TypedItem::Const(TypedValue::Numeric(value))) => Ok(CheckedTree::Item(CheckedItem::Const(CheckedValue::Numeric(value)))),
+            TypedTree::Item(TypedItem::Const(TypedValue::Int(value))) => Ok(CheckedTree::Item(CheckedItem::Const(CheckedValue::Int(value)))),
+            TypedTree::Item(TypedItem::Const(TypedValue::BigInt(value))) => Ok(CheckedTree::Item(CheckedItem::Const(CheckedValue::BigInt(value)))),
+            TypedTree::Item(TypedItem::Const(TypedValue::StringLiteral(value))) => {
+                Ok(CheckedTree::Item(CheckedItem::Const(CheckedValue::StringLiteral(value))))
+            }
+            TypedTree::Item(TypedItem::Const(TypedValue::Null)) => Ok(CheckedTree::Item(CheckedItem::Const(CheckedValue::Null))),
+            TypedTree::UnOp { op, item } => Ok(CheckedTree::UnOp {
+                op,
+                item: Box::new(self.type_check(*item)?),
+            }),
+            TypedTree::BiOp { left, op, right } => Ok(CheckedTree::BiOp {
+                op,
+                left: Box::new(self.type_check(*left)?),
+                right: Box::new(self.type_check(*right)?),
+            }),
+        }
     }
 }
+
+#[cfg(test)]
+mod tests;

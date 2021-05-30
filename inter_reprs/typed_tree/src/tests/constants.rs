@@ -17,7 +17,7 @@ use super::*;
 #[test]
 fn small_int() {
     assert_eq!(
-        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+        TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::SmallInt,
         }))
@@ -32,7 +32,7 @@ fn small_int() {
 #[test]
 fn integer() {
     assert_eq!(
-        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+        TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::Integer,
         }))
@@ -47,7 +47,7 @@ fn integer() {
 #[test]
 fn big_int() {
     assert_eq!(
-        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+        TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
             value: BigDecimal::from(0),
             type_family: SqlTypeFamily::BigInt,
         }))
@@ -62,7 +62,7 @@ fn big_int() {
 #[test]
 fn bool() {
     assert_eq!(
-        TypedTree::Item(TypedItem::Const(TypedValue::Bool(true))).eval(&[], &[]),
+        TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))).eval(&[], &[]),
         Ok(ScalarValue::Bool(true))
     );
 }
@@ -70,7 +70,7 @@ fn bool() {
 #[test]
 fn string() {
     assert_eq!(
-        TypedTree::Item(TypedItem::Const(TypedValue::String("str".to_owned()))).eval(&[], &[]),
+        TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))).eval(&[], &[]),
         Ok(ScalarValue::String("str".to_owned()))
     );
 }

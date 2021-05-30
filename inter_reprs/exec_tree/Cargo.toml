@@ -5,3 +5,6 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
+operators = { path = "../operators" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

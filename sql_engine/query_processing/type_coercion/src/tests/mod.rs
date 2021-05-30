@@ -13,25 +13,30 @@
 // limitations under the License.
 
 use super::*;
-use typed_tree::{TypedItem, TypedTree, TypedValue};
+use bigdecimal::BigDecimal;
+use checked_tree::{CheckedItem, CheckedTree, CheckedValue};
 
 #[cfg(test)]
 mod constants;
 #[cfg(test)]
 mod operations;
 
-fn untyped_int(num: i32) -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(num)))
+fn checked_int(num: i32) -> CheckedTree {
+    CheckedTree::Item(CheckedItem::Const(CheckedValue::Int(num)))
 }
 
-fn untyped_number(num: &str) -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(num.to_owned())))
+fn checked_bigint(num: i64) -> CheckedTree {
+    CheckedTree::Item(CheckedItem::Const(CheckedValue::BigInt(num)))
 }
 
-fn untyped_string(str: &str) -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(str.to_owned())))
+fn checked_number(num: BigDecimal) -> CheckedTree {
+    CheckedTree::Item(CheckedItem::Const(CheckedValue::Numeric(num)))
 }
 
-fn untyped_null() -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::Null))
+fn checked_string(str: &str) -> CheckedTree {
+    CheckedTree::Item(CheckedItem::Const(CheckedValue::StringLiteral(str.to_owned())))
+}
+
+fn checked_null() -> CheckedTree {
+    CheckedTree::Item(CheckedItem::Const(CheckedValue::Null))
 }

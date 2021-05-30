@@ -19,7 +19,7 @@ use query_plan::{
 };
 use storage::Transaction;
 use typed_queries::TypedQuery;
-use typed_tree::{TypedItem, TypedTree};
+use typed_tree::{TypedItemOld, TypedTreeOld};
 
 pub struct QueryPlanner<'p> {
     transaction: Transaction<'p>,
@@ -77,7 +77,7 @@ impl<'p> QueryPlanner<'p> {
                         .projection_items
                         .into_iter()
                         .map(|item| match item {
-                            TypedTree::Item(TypedItem::Column { name, .. }) => name,
+                            TypedTreeOld::Item(TypedItemOld::Column { name, .. }) => name,
                             _ => unimplemented!(),
                         })
                         .collect(),

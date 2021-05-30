@@ -13,32 +13,32 @@
 // limitations under the License.
 
 use definition::FullTableName;
-use typed_tree::TypedTree;
+use typed_tree::TypedTreeOld;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedInsertQuery {
     pub full_table_name: FullTableName,
-    pub values: Vec<Vec<Option<TypedTree>>>,
+    pub values: Vec<Vec<Option<TypedTreeOld>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedDeleteQuery {
     pub full_table_name: FullTableName,
-    pub filter: Option<TypedTree>,
+    pub filter: Option<TypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedUpdateQuery {
     pub full_table_name: FullTableName,
-    pub assignments: Vec<Option<TypedTree>>,
-    pub filter: Option<TypedTree>,
+    pub assignments: Vec<Option<TypedTreeOld>>,
+    pub filter: Option<TypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedSelectQuery {
     pub full_table_name: FullTableName,
-    pub projection_items: Vec<TypedTree>,
-    pub filter: Option<TypedTree>,
+    pub projection_items: Vec<TypedTreeOld>,
+    pub filter: Option<TypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

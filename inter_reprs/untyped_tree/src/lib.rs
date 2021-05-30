@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use bigdecimal::BigDecimal;
 use operators::{BiOperator, UnOperator};
 use std::fmt::{self, Display, Formatter};
 use types::{Bool, SqlType, SqlTypeFamily};
@@ -28,8 +27,7 @@ pub enum UntypedItem {
 pub enum UntypedValue {
     Literal(String),
     Int(i32),
-    BigInt(i64),
-    Number(BigDecimal),
+    Number(String),
     Bool(Bool),
     Null,
 }
@@ -38,7 +36,6 @@ impl UntypedValue {
     pub fn kind(&self) -> Option<SqlTypeFamily> {
         match self {
             UntypedValue::Int(_) => Some(SqlTypeFamily::Integer),
-            UntypedValue::BigInt(_) => Some(SqlTypeFamily::BigInt),
             UntypedValue::Number(_) => Some(SqlTypeFamily::Real),
             UntypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
             UntypedValue::Literal(_) => None,
@@ -51,7 +48,6 @@ impl Display for UntypedValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             UntypedValue::Int(n) => write!(f, "{}", n),
-            UntypedValue::BigInt(n) => write!(f, "{}", n),
             UntypedValue::Number(n) => write!(f, "{}", n),
             UntypedValue::Bool(Bool(true)) => write!(f, "t"),
             UntypedValue::Bool(Bool(false)) => write!(f, "f"),

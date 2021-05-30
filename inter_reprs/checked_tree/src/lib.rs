@@ -12,4 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub struct CheckedTree;
+use bigdecimal::BigDecimal;
+use operators::{BiOperator, UnOperator};
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum CheckedTree {
+    Item(CheckedItem),
+    UnOp {
+        op: UnOperator,
+        item: Box<CheckedTree>,
+    },
+    BiOp {
+        op: BiOperator,
+        left: Box<CheckedTree>,
+        right: Box<CheckedTree>,
+    },
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum CheckedItem {
+    Const(CheckedValue),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum CheckedValue {
+    Int(i32),
+    BigInt(i64),
+    Numeric(BigDecimal),
+    StringLiteral(String),
+    Null,
+}

@@ -13,12 +13,65 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, FromPrimitive};
+use query_response::QueryError;
 use std::ops::RangeInclusive;
+use std::str::FromStr;
 use typed_tree::{TypedItem, TypedTree, TypedValue};
+use typed_tree::{TypedItemOld, TypedTreeOld, TypedValueOld};
 use types::{Bool, SqlTypeFamily};
 use untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
+const MAX_BIG_INT: &str = "9223372036854775807";
+const MIN_BIG_INT: &str = "-9223372036854775808";
+
+#[derive(Debug, PartialEq)]
+pub struct TypeInferenceError;
+
+impl From<TypeInferenceError> for QueryError {
+    fn from(error: TypeInferenceError) -> QueryError {
+        unimplemented!()
+    }
+}
+
 pub struct TypeInference;
+
+impl TypeInference {
+    fn infer_type(&self, tree: UntypedTree) -> Result<TypedTree, TypeInferenceError> {
+        match tree {
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(value))) if value.contains('.') => Ok(TypedTree::Item(TypedItem::Const(
+                TypedValue::Numeric(BigDecimal::from_str(&value).unwrap()),
+            ))),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(value))) => {
+                if (value.starts_with('-') && value.len() < MIN_BIG_INT.len() || value.len() == MIN_BIG_INT.len() && value.as_str() <= MIN_BIG_INT)
+                    || (value.len() < MAX_BIG_INT.len() || value.len() == MAX_BIG_INT.len() && value.as_str() <= MAX_BIG_INT)
+                {
+                    Ok(TypedTree::Item(TypedItem::Const(TypedValue::BigInt(value.parse().unwrap()))))
+                } else {
+                    Ok(TypedTree::Item(TypedItem::Const(TypedValue::Numeric(
+                        BigDecimal::from_str(&value).unwrap(),
+                    ))))
+                }
+            }
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(value))) => Ok(TypedTree::Item(TypedItem::Const(TypedValue::Int(value)))),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(value))) => {
+                Ok(TypedTree::Item(TypedItem::Const(TypedValue::StringLiteral(value))))
+            }
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)) => Ok(TypedTree::Item(TypedItem::Const(TypedValue::Null))),
+            UntypedTree::UnOp { op, item } => Ok(TypedTree::UnOp {
+                op,
+                item: Box::new(self.infer_type(*item)?),
+            }),
+            UntypedTree::BiOp { left, op, right } => Ok(TypedTree::BiOp {
+                op,
+                left: Box::new(self.infer_type(*left)?),
+                right: Box::new(self.infer_type(*right)?),
+            }),
+            UntypedTree::Item(UntypedItem::Param(_)) => unimplemented!(),
+            UntypedTree::Item(UntypedItem::Column { .. }) => unimplemented!(),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(_))) => unreachable!("SHOULD BE REMOVED!!!"),
+        }
+    }
+}
 
 pub struct TypeInferenceOld {
     small_int_range: RangeInclusive<BigDecimal>,
@@ -42,42 +95,43 @@ impl Default for TypeInferenceOld {
 }
 
 impl TypeInferenceOld {
-    pub fn infer_type(&self, tree: UntypedTree, param_types: &[SqlTypeFamily]) -> TypedTree {
+    pub fn infer_type(&self, tree: UntypedTree, param_types: &[SqlTypeFamily]) -> TypedTreeOld {
         match tree {
-            UntypedTree::Item(UntypedItem::Param(index)) => TypedTree::Item(TypedItem::Param {
+            UntypedTree::Item(UntypedItem::Param(index)) => TypedTreeOld::Item(TypedItemOld::Param {
                 index,
                 type_family: Some(param_types[index]),
             }),
-            UntypedTree::Item(UntypedItem::Column { name, sql_type, index }) => TypedTree::Item(TypedItem::Column {
+            UntypedTree::Item(UntypedItem::Column { name, sql_type, index }) => TypedTreeOld::Item(TypedItemOld::Column {
                 name,
                 sql_type: sql_type.family(),
                 index,
             }),
             UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(num))) => {
+                let num = BigDecimal::from_str(&num).unwrap();
                 if num.is_integer() {
                     if self.small_int_range.contains(&num) {
-                        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                        TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                             value: num,
                             type_family: SqlTypeFamily::SmallInt,
                         }))
                     } else if self.integer_range.contains(&num) {
-                        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                        TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                             value: num,
                             type_family: SqlTypeFamily::Integer,
                         }))
                     } else {
-                        TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                        TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                             value: num,
                             type_family: SqlTypeFamily::BigInt,
                         }))
                     }
                 } else if self.real_range.contains(&num) {
-                    TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                    TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                         value: num,
                         type_family: SqlTypeFamily::Real,
                     }))
                 } else if self.double_precision_range.contains(&num) {
-                    TypedTree::Item(TypedItem::Const(TypedValue::Num {
+                    TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                         value: num,
                         type_family: SqlTypeFamily::Double,
                     }))
@@ -85,8 +139,12 @@ impl TypeInferenceOld {
                     unimplemented!()
                 }
             }
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(str))) => TypedTree::Item(TypedItem::Const(TypedValue::String(str))),
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(boolean)))) => TypedTree::Item(TypedItem::Const(TypedValue::Bool(boolean))),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(value))) => {
+                TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String(value)))
+            }
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(Bool(value)))) => {
+                TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(value)))
+            }
             UntypedTree::BiOp { left, op, right } => {
                 log::debug!("LEFT TREE {:#?}", left);
                 log::debug!("RIGHT TREE {:#?}", right);
@@ -101,26 +159,22 @@ impl TypeInferenceOld {
                     (None, Some(right_type_family)) => right_type_family,
                     (None, None) => unimplemented!(),
                 };
-                TypedTree::BiOp {
+                TypedTreeOld::BiOp {
                     type_family,
                     left: Box::new(left_tree),
                     op,
                     right: Box::new(right_tree),
                 }
             }
-            UntypedTree::UnOp { op, item } => TypedTree::UnOp {
+            UntypedTree::UnOp { op, item } => TypedTreeOld::UnOp {
                 op,
                 item: Box::new(self.infer_type(*item, param_types)),
             },
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(value))) => TypedTree::Item(TypedItem::Const(TypedValue::Num {
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(value))) => TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                 value: BigDecimal::from(value),
                 type_family: SqlTypeFamily::Integer,
             })),
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(value))) => TypedTree::Item(TypedItem::Const(TypedValue::Num {
-                value: BigDecimal::from(value),
-                type_family: SqlTypeFamily::BigInt,
-            })),
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)) => TypedTree::Item(TypedItem::Null(None)),
+            UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)) => TypedTreeOld::Item(TypedItemOld::Null(None)),
         }
     }
 }

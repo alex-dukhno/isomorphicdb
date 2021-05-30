@@ -13,21 +13,22 @@
 // limitations under the License.
 
 use super::*;
+use bigdecimal::BigDecimal;
 use operators::{BiArithmetic, BiOperator, UnArithmetic, UnOperator};
 
 #[test]
 fn negate_number() {
-    let type_inference = TypeInference;
-    let untyped_tree = UntypedTree::UnOp {
+    let type_coercion = TypeCoercion;
+    let checked_tree = CheckedTree::UnOp {
         op: UnOperator::Arithmetic(UnArithmetic::Neg),
-        item: Box::new(untyped_number("9223372036854775808")),
+        item: Box::new(checked_number(BigDecimal::from(9223372036854775808u64))),
     };
 
     assert_eq!(
-        type_inference.infer_type(untyped_tree),
-        Ok(TypedTree::UnOp {
+        type_coercion.coerce_type(checked_tree),
+        Ok(ExecutableTree::UnOp {
             op: UnOperator::Arithmetic(UnArithmetic::Neg),
-            item: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Numeric(BigDecimal::from(
+            item: Box::new(ExecutableTree::Item(ExecutableItem::Const(ExecutableValue::Numeric(BigDecimal::from(
                 9223372036854775808u64
             ))))),
         })
@@ -36,21 +37,21 @@ fn negate_number() {
 
 #[test]
 fn addition() {
-    let type_inference = TypeInference;
-    let untyped_tree = UntypedTree::BiOp {
+    let type_coercion = TypeCoercion;
+    let checked_tree = CheckedTree::BiOp {
         op: BiOperator::Arithmetic(BiArithmetic::Add),
-        left: Box::new(untyped_number("9223372036854775808")),
-        right: Box::new(untyped_number("9223372036854775808")),
+        left: Box::new(checked_number(BigDecimal::from(9223372036854775808u64))),
+        right: Box::new(checked_number(BigDecimal::from(9223372036854775808u64))),
     };
 
     assert_eq!(
-        type_inference.infer_type(untyped_tree),
-        Ok(TypedTree::BiOp {
+        type_coercion.coerce_type(checked_tree),
+        Ok(ExecutableTree::BiOp {
             op: BiOperator::Arithmetic(BiArithmetic::Add),
-            left: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Numeric(BigDecimal::from(
+            left: Box::new(ExecutableTree::Item(ExecutableItem::Const(ExecutableValue::Numeric(BigDecimal::from(
                 9223372036854775808u64
             ))))),
-            right: Box::new(TypedTree::Item(TypedItem::Const(TypedValue::Numeric(BigDecimal::from(
+            right: Box::new(ExecutableTree::Item(ExecutableItem::Const(ExecutableValue::Numeric(BigDecimal::from(
                 9223372036854775808u64
             ))))),
         })

@@ -12,4 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub struct ExecTree;
+use bigdecimal::BigDecimal;
+use operators::{BiOperator, UnOperator};
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ExecutableTree {
+    Item(ExecutableItem),
+    UnOp {
+        op: UnOperator,
+        item: Box<ExecutableTree>,
+    },
+    BiOp {
+        op: BiOperator,
+        left: Box<ExecutableTree>,
+        right: Box<ExecutableTree>,
+    },
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ExecutableItem {
+    Const(ExecutableValue),
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum ExecutableValue {
+    Int(i32),
+    BigInt(i64),
+    Numeric(BigDecimal),
+    StringLiteral(String),
+    Null,
+}

@@ -5,3 +5,5 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
+definition = { path = "../../definition" }
+exec_tree = { path = "../exec_tree" }
