@@ -13,12 +13,12 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use data_manipulation_operators::{BiOperator, UnOperator};
-use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 use definition::ColumnDef;
+use operators::{BiOperator, UnOperator};
 use query_ast::{BinaryOperator, Expr, Value};
 use std::str::FromStr;
 use types::SqlType;
+use untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
 const MAX_BIG_INT: &str = "9223372036854775807";
 const MIN_BIG_INT: &str = "-9223372036854775808";

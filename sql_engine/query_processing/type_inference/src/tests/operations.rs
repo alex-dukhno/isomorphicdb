@@ -13,11 +13,11 @@
 // limitations under the License.
 
 use super::*;
-use data_manipulation_operators::{BiArithmetic, BiOperator, UnArithmetic, UnOperator};
+use operators::{BiArithmetic, BiOperator, UnArithmetic, UnOperator};
 
 #[test]
 fn negate_number() {
-    let type_inference = TypeInference::default();
+    let type_inference = TypeInferenceOld::default();
     let untyped_tree = UntypedTree::UnOp {
         op: UnOperator::Arithmetic(UnArithmetic::Neg),
         item: Box::new(untyped_number(BigDecimal::from(2))),
@@ -37,7 +37,7 @@ fn negate_number() {
 
 #[test]
 fn add_same_types() {
-    let type_inference = TypeInference::default();
+    let type_inference = TypeInferenceOld::default();
     let untyped_tree = UntypedTree::BiOp {
         left: Box::new(untyped_number(BigDecimal::from(1))),
         op: BiOperator::Arithmetic(BiArithmetic::Add),
@@ -63,7 +63,7 @@ fn add_same_types() {
 
 #[test]
 fn add_different_types() {
-    let type_inference = TypeInference::default();
+    let type_inference = TypeInferenceOld::default();
     let untyped_tree = UntypedTree::BiOp {
         left: Box::new(untyped_number(BigDecimal::from(i64::MAX - i32::MAX as i64))),
         op: BiOperator::Arithmetic(BiArithmetic::Add),

@@ -13,7 +13,6 @@
 // limitations under the License.
 
 use super::*;
-use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
 #[cfg(test)]
 mod expressions;

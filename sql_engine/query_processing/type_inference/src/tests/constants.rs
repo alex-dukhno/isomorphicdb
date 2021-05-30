@@ -17,7 +17,7 @@ use std::str::FromStr;
 
 #[test]
 fn smallint() {
-    let type_inference = TypeInference::default();
+    let type_inference = TypeInferenceOld::default();
     let untyped_tree = untyped_number(BigDecimal::from(0));
 
     assert_eq!(
@@ -31,7 +31,7 @@ fn smallint() {
 
 #[test]
 fn integer() {
-    let type_inference = TypeInference::default();
+    let type_inference = TypeInferenceOld::default();
     let untyped_tree = untyped_number(BigDecimal::from(i32::MAX - i16::MAX as i32));
 
     assert_eq!(
@@ -45,7 +45,7 @@ fn integer() {
 
 #[test]
 fn bigint() {
-    let type_inference = TypeInference::default();
+    let type_inference = TypeInferenceOld::default();
     let tree = untyped_number(BigDecimal::from(i64::MAX - i32::MAX as i64));
 
     assert_eq!(
@@ -59,7 +59,7 @@ fn bigint() {
 
 #[test]
 fn real() {
-    let type_inference = TypeInference::default();
+    let type_inference = TypeInferenceOld::default();
     let tree = untyped_number(BigDecimal::from_f32(3.8).unwrap());
 
     assert_eq!(
@@ -73,7 +73,7 @@ fn real() {
 
 #[test]
 fn string() {
-    let type_inference = TypeInference::default();
+    let type_inference = TypeInferenceOld::default();
     let tree = untyped_string("str".to_owned());
 
     assert_eq!(

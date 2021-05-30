@@ -197,8 +197,6 @@ fn insert_into_table_negative_number() {
 
 #[cfg(test)]
 mod multiple_values {
-    use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
-
     use super::*;
 
     fn insert_value_as_expression_with_operation(left: Expr, op: BinaryOperator, right: Expr) -> Query {

@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 binary = { path = "../binary" }
-query_ast = { path = "../../postgre_sql/query_ast" }
+query_ast = { path = "../../inter_reprs/query_ast" }
 types = { path = "../../types" }
 wire_protocol_payload = { path = "../../postgre_sql/wire_protocol/payload" }
 

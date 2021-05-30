@@ -1,0 +1,10 @@
+[package]
+name = "untyped_queries"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+definition = { path = "../../definition" }
+untyped_tree = { path = "../untyped_tree" }

@@ -13,10 +13,6 @@
 // limitations under the License.
 
 use catalog::CatalogHandler;
-use data_manipulation::{
-    QueryPlan, TypedDeleteQuery, TypedInsertQuery, TypedQuery, TypedSelectQuery, TypedTree, TypedUpdateQuery, UntypedInsertQuery, UntypedQuery,
-    UntypedUpdateQuery,
-};
 use definition::ColumnDef;
 use definition_planner::DefinitionPlanner;
 use postgre_sql::{
@@ -24,11 +20,15 @@ use postgre_sql::{
     query_response::{QueryError, QueryEvent},
 };
 use query_analyzer::QueryAnalyzer;
+use query_plan::QueryPlan;
 use query_planner::QueryPlanner;
-use query_processing::{TypeChecker, TypeCoercion, TypeInference};
+use query_processing::{TypeCheckerOld, TypeCoercion, TypeInferenceOld};
 use std::fmt::{self, Debug, Formatter};
 use storage::{Database, Transaction};
+use typed_queries::{TypedDeleteQuery, TypedInsertQuery, TypedQuery, TypedSelectQuery, TypedUpdateQuery};
+use typed_tree::TypedTree;
 use types::SqlTypeFamily;
+use untyped_queries::{UntypedInsertQuery, UntypedQuery, UntypedUpdateQuery};
 
 pub struct TransactionManager {
     database: Database,
@@ -48,8 +48,8 @@ pub struct TransactionContext<'t> {
     definition_planner: DefinitionPlanner<'t>,
     catalog: CatalogHandler<'t>,
     query_analyzer: QueryAnalyzer<'t>,
-    type_inference: TypeInference,
-    type_checker: TypeChecker,
+    type_inference: TypeInferenceOld,
+    type_checker: TypeCheckerOld,
     type_coercion: TypeCoercion,
     query_planner: QueryPlanner<'t>,
 }
@@ -66,8 +66,8 @@ impl<'t> TransactionContext<'t> {
             definition_planner: DefinitionPlanner::from(transaction.clone()),
             catalog: CatalogHandler::from(transaction.clone()),
             query_analyzer: QueryAnalyzer::from(transaction.clone()),
-            type_inference: TypeInference::default(),
-            type_checker: TypeChecker,
+            type_inference: TypeInferenceOld::default(),
+            type_checker: TypeCheckerOld,
             type_coercion: TypeCoercion,
             query_planner: QueryPlanner::from(transaction.clone()),
         }

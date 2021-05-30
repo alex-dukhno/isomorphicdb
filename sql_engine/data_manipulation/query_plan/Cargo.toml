@@ -1,19 +1,19 @@
 [package]
-name = "data_manipulation_query_plan"
+name = "query_plan"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 publish = false
 
 [dependencies]
-data_manipulation_typed_tree = { path = "../typed_tree" }
-data_manipulation_query_result = { path = "../query_result" }
+query_result = { path = "../query_result" }
 binary = { path = "../../../data_repr/binary" }
 definition = { path = "../../../definition" }
 catalog = { path = "../../catalog" }
 query_response = { path = "../../../postgre_sql/query_response" }
 scalar = { path = "../../../data_repr/scalar" }
 storage = { path = "../../../storage" }
+typed_tree = { path = "../../../inter_reprs/typed_tree" }
 types = { path = "../../../types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

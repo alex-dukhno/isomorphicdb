@@ -13,14 +13,14 @@
 // limitations under the License.
 
 use catalog::CatalogHandler;
-use data_manipulation_untyped_queries::{UntypedDeleteQuery, UntypedInsertQuery, UntypedQuery, UntypedSelectQuery, UntypedUpdateQuery};
-use data_manipulation_untyped_tree::{UntypedItem, UntypedTree};
 use data_manipulation_untyped_tree_builder::{TreeBuilder, UntypedExpressionError};
 use definition::FullTableName;
 use query_ast::{Assignment, DeleteQuery, InsertQuery, InsertSource, Query, SelectItem, SelectQuery, UpdateQuery, Values};
 use query_response::QueryError;
 use std::collections::HashMap;
 use storage::Transaction;
+use untyped_queries::{UntypedDeleteQuery, UntypedInsertQuery, UntypedQuery, UntypedSelectQuery, UntypedUpdateQuery};
+use untyped_tree::{UntypedItem, UntypedTree};
 
 pub struct QueryAnalyzer<'a> {
     catalog: CatalogHandler<'a>,

@@ -12,12 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation::{QueryPlan, UntypedQuery};
 use data_repr::scalar::ScalarValue;
 pub use engine::NodeEngine;
 use postgre_sql::query_ast::Query;
+use query_plan::QueryPlan;
 use std::collections::HashMap;
 use types::SqlTypeFamily;
+use untyped_queries::UntypedQuery;
 
 pub mod engine;
 mod query_executor;

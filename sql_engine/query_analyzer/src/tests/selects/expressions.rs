@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
-
 use super::*;
 
 #[test]
@@ -141,8 +139,6 @@ fn select_parameters_from_a_table() {
 #[cfg(test)]
 mod multiple_values {
     use super::*;
-    use data_manipulation_operators::UnOperator;
-    use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
     fn select_value_as_expression_with_operation(left: Expr, op: BinaryOperator, right: Expr) -> Query {
         select_with_columns(

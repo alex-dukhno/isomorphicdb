@@ -7,9 +7,9 @@ publish = false
 
 [dependencies]
 definition = { path = "../../../definition" }
-data_manipulation_operators = { path = "../operators" }
-data_manipulation_untyped_tree = { path = "../untyped_tree" }
-query_ast = { path = "../../../postgre_sql/query_ast" }
+operators = { path = "../../../inter_reprs/operators" }
+query_ast = { path = "../../../inter_reprs/query_ast" }
 types = { path = "../../../types" }
+untyped_tree = { path = "../../../inter_reprs/untyped_tree" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

@@ -13,13 +13,13 @@
 // limitations under the License.
 
 use catalog::CatalogHandler;
-use data_manipulation_query_plan::{
+use query_plan::{
     ConstraintValidator, DeleteQueryPlan, DynamicValues, Filter, FullTableScan, InsertQueryPlan, Projection, QueryPlan, Repeater, SelectQueryPlan,
     StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
-use data_manipulation_typed_queries::TypedQuery;
-use data_manipulation_typed_tree::{TypedItem, TypedTree};
 use storage::Transaction;
+use typed_queries::TypedQuery;
+use typed_tree::{TypedItem, TypedTree};
 
 pub struct QueryPlanner<'p> {
     transaction: Transaction<'p>,

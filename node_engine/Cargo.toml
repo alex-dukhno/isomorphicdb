@@ -14,7 +14,11 @@ postgre_sql = { path = "../postgre_sql" }
 #SQL-ENGINE
 catalog = { path = "../sql_engine/catalog" }
 data_definition = { path = "../sql_engine/data_definition" }
-data_manipulation = { path = "../sql_engine/data_manipulation" }
+untyped_queries = { path = "../inter_reprs/untyped_queries" }
+typed_queries = { path = "../inter_reprs/typed_queries" }
+typed_tree = { path = "../inter_reprs/typed_tree" }
+query_plan = { path = "../sql_engine/data_manipulation/query_plan" }
+query_result = { path = "../sql_engine/data_manipulation/query_result" }
 data_repr = { path = "../data_repr" }
 definition = { path = "../definition" }
 definition_planner = { path = "../sql_engine/definition_planner" }

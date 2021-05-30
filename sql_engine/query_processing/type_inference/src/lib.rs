@@ -13,12 +13,14 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, FromPrimitive};
-use data_manipulation_typed_tree::{TypedItem, TypedTree, TypedValue};
-use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 use std::ops::RangeInclusive;
+use typed_tree::{TypedItem, TypedTree, TypedValue};
 use types::{Bool, SqlTypeFamily};
+use untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
-pub struct TypeInference {
+pub struct TypeInference;
+
+pub struct TypeInferenceOld {
     small_int_range: RangeInclusive<BigDecimal>,
     integer_range: RangeInclusive<BigDecimal>,
     #[allow(dead_code)]
@@ -27,9 +29,9 @@ pub struct TypeInference {
     double_precision_range: RangeInclusive<BigDecimal>,
 }
 
-impl Default for TypeInference {
-    fn default() -> TypeInference {
-        TypeInference {
+impl Default for TypeInferenceOld {
+    fn default() -> TypeInferenceOld {
+        TypeInferenceOld {
             small_int_range: BigDecimal::from(i16::MIN)..=BigDecimal::from(i16::MAX),
             integer_range: BigDecimal::from(i32::MIN)..=BigDecimal::from(i32::MAX),
             big_int_range: BigDecimal::from(i64::MIN)..=BigDecimal::from(i64::MAX),
@@ -39,7 +41,7 @@ impl Default for TypeInference {
     }
 }
 
-impl TypeInference {
+impl TypeInferenceOld {
     pub fn infer_type(&self, tree: UntypedTree, param_types: &[SqlTypeFamily]) -> TypedTree {
         match tree {
             UntypedTree::Item(UntypedItem::Param(index)) => TypedTree::Item(TypedItem::Param {

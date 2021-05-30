@@ -14,11 +14,12 @@
 
 use super::*;
 use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, SchemaChange};
-use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching, UnOperator};
 use definition::SchemaName;
+use operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching, UnOperator};
 use query_ast::{Assignment, BinaryOperator, DataType, Expr, Value};
 use storage::Database;
 use types::SqlType;
+use untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
 #[cfg(test)]
 mod delete;

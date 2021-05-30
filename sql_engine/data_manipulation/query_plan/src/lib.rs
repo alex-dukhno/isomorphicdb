@@ -16,13 +16,13 @@
 
 use bigdecimal::{BigDecimal, FromPrimitive};
 use binary::BinaryValue;
-use data_manipulation_query_result::QueryExecutionError;
-use data_manipulation_typed_tree::TypedTree;
 use definition::ColumnDef;
 use query_response::QueryEvent;
+use query_result::QueryExecutionError;
 use scalar::ScalarValue;
 use std::collections::HashMap;
 use storage::{Cursor, TableRef};
+use typed_tree::TypedTree;
 use types::{SqlType, SqlTypeFamily};
 
 #[derive(Debug, PartialEq)]

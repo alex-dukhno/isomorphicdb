@@ -8,12 +8,12 @@ publish = false
 [dependencies]
 catalog = { path = "../catalog" }
 data_definition_execution_plan = { path = "../data_definition/execution_plan" }
-data_manipulation_untyped_queries = { path = "../data_manipulation/untyped_queries" }
-data_manipulation_operators = { path = "../data_manipulation/operators" }
-data_manipulation_untyped_tree = { path = "../data_manipulation/untyped_tree" }
+untyped_queries = { path = "../../inter_reprs/untyped_queries" }
+operators = { path = "../../inter_reprs/operators" }
+untyped_tree = { path = "../../inter_reprs/untyped_tree" }
 data_manipulation_untyped_tree_builder = { path = "../data_manipulation/untyped_tree_builder" }
 definition = { path = "../../definition" }
-query_ast = { path = "../../postgre_sql/query_ast" }
+query_ast = { path = "../../inter_reprs/query_ast" }
 query_response = { path = "../../postgre_sql/query_response" }
 types = { path = "../../types" }
 storage = { path = "../../storage" }

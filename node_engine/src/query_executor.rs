@@ -13,14 +13,16 @@
 // limitations under the License.
 
 use crate::{transaction_manager::TransactionContext, QueryPlanCache};
-use data_manipulation::{QueryExecutionError, QueryExecutionResult, UntypedQuery};
 use data_repr::scalar::ScalarValue;
 use postgre_sql::{
     query_ast::{Extended, Query, Statement},
     query_response::{QueryError, QueryEvent},
     wire_protocol::payload::OutboundMessage,
 };
+use query_plan::QueryExecutionResult;
+use query_result::QueryExecutionError;
 use types::{SqlType, SqlTypeFamily};
+use untyped_queries::UntypedQuery;
 
 pub struct QueryExecutor;
 

@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-query_ast = { path = "../query_ast" }
+query_ast = { path = "../../inter_reprs/query_ast" }
 query_response = { path = "../query_response" }
 
 postgres-parser = "0.2"
