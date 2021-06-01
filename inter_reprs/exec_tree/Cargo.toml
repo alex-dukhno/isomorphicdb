@@ -5,6 +5,10 @@ authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
 
 [dependencies]
+query_result = { path = "../../sql_engine/data_manipulation/query_result" }
+operators_old = { path = "../operators_old" }
 operators = { path = "../operators" }
+scalar = { path = "../../data_repr/scalar" }
+types = { path = "../../types" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

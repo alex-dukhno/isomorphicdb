@@ -19,12 +19,12 @@ fn small_int() {
     assert_eq!(
         TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
             value: BigDecimal::from(0),
-            type_family: SqlTypeFamily::SmallInt,
+            type_family: SqlTypeFamilyOld::SmallInt,
         }))
         .eval(&[], &[]),
-        Ok(ScalarValue::Num {
+        Ok(ScalarValueOld::Num {
             value: BigDecimal::from(0),
-            type_family: SqlTypeFamily::SmallInt
+            type_family: SqlTypeFamilyOld::SmallInt
         })
     );
 }
@@ -34,12 +34,12 @@ fn integer() {
     assert_eq!(
         TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
             value: BigDecimal::from(0),
-            type_family: SqlTypeFamily::Integer,
+            type_family: SqlTypeFamilyOld::Integer,
         }))
         .eval(&[], &[]),
-        Ok(ScalarValue::Num {
+        Ok(ScalarValueOld::Num {
             value: BigDecimal::from(0),
-            type_family: SqlTypeFamily::Integer
+            type_family: SqlTypeFamilyOld::Integer
         })
     );
 }
@@ -49,12 +49,12 @@ fn big_int() {
     assert_eq!(
         TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
             value: BigDecimal::from(0),
-            type_family: SqlTypeFamily::BigInt,
+            type_family: SqlTypeFamilyOld::BigInt,
         }))
         .eval(&[], &[]),
-        Ok(ScalarValue::Num {
+        Ok(ScalarValueOld::Num {
             value: BigDecimal::from(0),
-            type_family: SqlTypeFamily::BigInt
+            type_family: SqlTypeFamilyOld::BigInt
         })
     );
 }
@@ -63,7 +63,7 @@ fn big_int() {
 fn bool() {
     assert_eq!(
         TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))).eval(&[], &[]),
-        Ok(ScalarValue::Bool(true))
+        Ok(ScalarValueOld::Bool(true))
     );
 }
 
@@ -71,6 +71,6 @@ fn bool() {
 fn string() {
     assert_eq!(
         TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))).eval(&[], &[]),
-        Ok(ScalarValue::String("str".to_owned()))
+        Ok(ScalarValueOld::String("str".to_owned()))
     );
 }

@@ -15,7 +15,7 @@
 use super::*;
 use data_definition_execution_plan::{ColumnInfo, CreateSchemaQuery, CreateTableQuery, SchemaChange};
 use definition::SchemaName;
-use operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching, UnOperator};
+use operators_old::{BiArithmetic, BiLogical, BiOperator, Bitwise, Comparison, Concat, Matching, UnOperator};
 use query_ast::{Assignment, BinaryOperator, DataType, Expr, Value};
 use storage::Database;
 use types::SqlType;

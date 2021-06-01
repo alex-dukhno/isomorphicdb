@@ -14,21 +14,21 @@
 
 use definition::ColumnDef;
 use query_response::QueryError;
-use scalar::ScalarValue;
+use scalar::ScalarValueOld;
 
 #[derive(Debug, PartialEq)]
 pub enum QueryExecution {
     Inserted(usize),
     Deleted(usize),
     Updated(usize),
-    Selected((Vec<ColumnDef>, Vec<Vec<ScalarValue>>)),
+    Selected((Vec<ColumnDef>, Vec<Vec<ScalarValueOld>>)),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum QueryExecutionError {
     SchemaDoesNotExist(String),
     ColumnNotFound(String),
-    UndefinedFunction(String, String),
+    UndefinedUnaryFunction(String, String),
     UndefinedBiFunction(String, String, String),
     DatatypeMismatch(String, String, String),
     InvalidArgumentForPowerFunction,
@@ -36,11 +36,12 @@ pub enum QueryExecutionError {
     MostSpecificTypeMismatch(String, String, String, usize),
     CannotCoerce(String, String),
     NumberOutOfRange(String, String, usize),
+    AmbiguousFunction(String, String),
 }
 
 impl QueryExecutionError {
-    pub fn undefined_function<Op: ToString, Ty: ToString>(operator: Op, type_family: Ty) -> QueryExecutionError {
-        QueryExecutionError::UndefinedFunction(operator.to_string(), type_family.to_string())
+    pub fn undefined_unary_function<Op: ToString, Ty: ToString>(operator: Op, type_family: Ty) -> QueryExecutionError {
+        QueryExecutionError::UndefinedUnaryFunction(operator.to_string(), type_family.to_string())
     }
 
     pub fn undefined_bi_function<Op: ToString, LeftTy: ToString, RightTy: ToString>(
@@ -75,6 +76,10 @@ impl QueryExecutionError {
     pub fn out_of_range<T: ToString, S: ToString>(pg_type: T, column_name: S, row_index: usize) -> QueryExecutionError {
         QueryExecutionError::NumberOutOfRange(pg_type.to_string(), column_name.to_string(), row_index)
     }
+
+    pub fn ambiguous_function<Op: ToString, Ty: ToString>(operator: Op, sql_type: Ty) -> QueryExecutionError {
+        QueryExecutionError::AmbiguousFunction(operator.to_string(), sql_type.to_string())
+    }
 }
 
 impl From<QueryExecutionError> for query_response::QueryError {
@@ -82,8 +87,10 @@ impl From<QueryExecutionError> for query_response::QueryError {
         match error {
             QueryExecutionError::SchemaDoesNotExist(schema) => QueryError::schema_does_not_exist(schema),
             QueryExecutionError::ColumnNotFound(column) => QueryError::column_does_not_exist(column),
-            QueryExecutionError::UndefinedFunction(func, sql_type) => QueryError::undefined_function(func, sql_type.as_str(), ""),
-            QueryExecutionError::UndefinedBiFunction(func, left_type, right_type) => QueryError::undefined_function(func, left_type, right_type),
+            QueryExecutionError::UndefinedUnaryFunction(func, sql_type) => QueryError::undefined_unary_function(func, sql_type),
+            QueryExecutionError::UndefinedBiFunction(func, left_type, right_type) => {
+                QueryError::undefined_binary_function(func, left_type, right_type)
+            }
             QueryExecutionError::DatatypeMismatch(op, target_type, actual_type) => QueryError::datatype_mismatch(op, target_type, actual_type),
             QueryExecutionError::InvalidArgumentForPowerFunction => QueryError::invalid_argument_for_power_function(),
             QueryExecutionError::InvalidTextRepresentation(sql_type, value) => QueryError::invalid_text_representation_2(sql_type, value),
@@ -92,6 +99,7 @@ impl From<QueryExecutionError> for query_response::QueryError {
             }
             QueryExecutionError::CannotCoerce(from_type, to_type) => QueryError::cannot_coerce(from_type, to_type),
             QueryExecutionError::NumberOutOfRange(sql_type, column, index) => QueryError::out_of_range_2(sql_type, column, index),
+            QueryExecutionError::AmbiguousFunction(operator, sql_type) => QueryError::ambiguous_function(operator, sql_type),
         }
     }
 }

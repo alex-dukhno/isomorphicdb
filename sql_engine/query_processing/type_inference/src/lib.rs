@@ -13,22 +13,38 @@
 // limitations under the License.
 
 use bigdecimal::{BigDecimal, FromPrimitive};
+use operators::BiOperator;
+use operators_old::UnOperator;
+use query_ast::{BinaryOperator, Expr, UnaryOperator, Value};
 use query_response::QueryError;
 use std::ops::RangeInclusive;
 use std::str::FromStr;
 use typed_tree::{TypedItem, TypedTree, TypedValue};
 use typed_tree::{TypedItemOld, TypedTreeOld, TypedValueOld};
-use types::{Bool, SqlTypeFamily};
+use types::{Bool, SqlType, SqlTypeFamilyOld};
 use untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
 
 const MAX_BIG_INT: &str = "9223372036854775807";
 const MIN_BIG_INT: &str = "-9223372036854775808";
 
 #[derive(Debug, PartialEq)]
-pub struct TypeInferenceError;
+pub enum TypeInferenceError {
+    ColumnNotFound(String),
+    ColumnCantBeReferenced(String),
+}
+
+impl TypeInferenceError {
+    pub fn column_not_found<C: ToString>(column_name: C) -> TypeInferenceError {
+        TypeInferenceError::ColumnNotFound(column_name.to_string())
+    }
+
+    pub fn column_cant_be_referenced<C: ToString>(column_name: C) -> TypeInferenceError {
+        TypeInferenceError::ColumnCantBeReferenced(column_name.to_string())
+    }
+}
 
 impl From<TypeInferenceError> for QueryError {
-    fn from(error: TypeInferenceError) -> QueryError {
+    fn from(_error: TypeInferenceError) -> QueryError {
         unimplemented!()
     }
 }
@@ -36,39 +52,58 @@ impl From<TypeInferenceError> for QueryError {
 pub struct TypeInference;
 
 impl TypeInference {
-    fn infer_type(&self, tree: UntypedTree) -> Result<TypedTree, TypeInferenceError> {
-        match tree {
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(value))) if value.contains('.') => Ok(TypedTree::Item(TypedItem::Const(
-                TypedValue::Numeric(BigDecimal::from_str(&value).unwrap()),
-            ))),
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(value))) => {
+    pub fn infer_type(&self, tree: Expr) -> Result<TypedTree, TypeInferenceError> {
+        Self::insert_position(tree)
+    }
+
+    fn insert_position(expr: Expr) -> Result<TypedTree, TypeInferenceError> {
+        Self::inner_insert_position(expr)
+    }
+
+    fn inner_insert_position(expr: Expr) -> Result<TypedTree, TypeInferenceError> {
+        match expr {
+            Expr::Value(value) => Ok(Self::value(value)),
+            Expr::Column(name) => Err(TypeInferenceError::column_cant_be_referenced(name)),
+            Expr::BinaryOp { left, op, right } => Self::static_binary_op(op, *left, *right),
+            Expr::Cast { expr, data_type } => Ok(TypedTree::UnOp {
+                op: operators::UnOperator::Cast(SqlType::from(data_type)),
+                item: Box::new(Self::inner_insert_position(*expr)?),
+            }),
+            Expr::UnaryOp { op, expr } => Ok(TypedTree::UnOp {
+                op: operators::UnOperator::from(op),
+                item: Box::new(Self::inner_insert_position(*expr)?),
+            }),
+            Expr::Param(index) => Ok(TypedTree::Item(TypedItem::Param((index - 1) as usize))),
+        }
+    }
+
+    fn static_binary_op(operator: BinaryOperator, left: Expr, right: Expr) -> Result<TypedTree, TypeInferenceError> {
+        let left = Self::inner_insert_position(left)?;
+        let right = Self::inner_insert_position(right)?;
+        Ok(TypedTree::BiOp {
+            left: Box::new(left),
+            op: operators::BiOperator::from(operator),
+            right: Box::new(right),
+        })
+    }
+
+    fn value(value: Value) -> TypedTree {
+        match value {
+            Value::Int(num) => TypedTree::Item(TypedItem::Const(TypedValue::Int(num))),
+            Value::String(string) => TypedTree::Item(TypedItem::Const(TypedValue::StringLiteral(string))),
+            Value::Null => TypedTree::Item(TypedItem::Const(TypedValue::Null)),
+            Value::Number(value) if value.contains('.') => {
+                TypedTree::Item(TypedItem::Const(TypedValue::Numeric(BigDecimal::from_str(&value).unwrap())))
+            }
+            Value::Number(value) => {
                 if (value.starts_with('-') && value.len() < MIN_BIG_INT.len() || value.len() == MIN_BIG_INT.len() && value.as_str() <= MIN_BIG_INT)
                     || (value.len() < MAX_BIG_INT.len() || value.len() == MAX_BIG_INT.len() && value.as_str() <= MAX_BIG_INT)
                 {
-                    Ok(TypedTree::Item(TypedItem::Const(TypedValue::BigInt(value.parse().unwrap()))))
+                    TypedTree::Item(TypedItem::Const(TypedValue::BigInt(value.parse().unwrap())))
                 } else {
-                    Ok(TypedTree::Item(TypedItem::Const(TypedValue::Numeric(
-                        BigDecimal::from_str(&value).unwrap(),
-                    ))))
+                    TypedTree::Item(TypedItem::Const(TypedValue::Numeric(value.parse().unwrap())))
                 }
             }
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(value))) => Ok(TypedTree::Item(TypedItem::Const(TypedValue::Int(value)))),
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(value))) => {
-                Ok(TypedTree::Item(TypedItem::Const(TypedValue::StringLiteral(value))))
-            }
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)) => Ok(TypedTree::Item(TypedItem::Const(TypedValue::Null))),
-            UntypedTree::UnOp { op, item } => Ok(TypedTree::UnOp {
-                op,
-                item: Box::new(self.infer_type(*item)?),
-            }),
-            UntypedTree::BiOp { left, op, right } => Ok(TypedTree::BiOp {
-                op,
-                left: Box::new(self.infer_type(*left)?),
-                right: Box::new(self.infer_type(*right)?),
-            }),
-            UntypedTree::Item(UntypedItem::Param(_)) => unimplemented!(),
-            UntypedTree::Item(UntypedItem::Column { .. }) => unimplemented!(),
-            UntypedTree::Item(UntypedItem::Const(UntypedValue::Bool(_))) => unreachable!("SHOULD BE REMOVED!!!"),
         }
     }
 }
@@ -95,7 +130,7 @@ impl Default for TypeInferenceOld {
 }
 
 impl TypeInferenceOld {
-    pub fn infer_type(&self, tree: UntypedTree, param_types: &[SqlTypeFamily]) -> TypedTreeOld {
+    pub fn infer_type(&self, tree: UntypedTree, param_types: &[SqlTypeFamilyOld]) -> TypedTreeOld {
         match tree {
             UntypedTree::Item(UntypedItem::Param(index)) => TypedTreeOld::Item(TypedItemOld::Param {
                 index,
@@ -112,28 +147,28 @@ impl TypeInferenceOld {
                     if self.small_int_range.contains(&num) {
                         TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                             value: num,
-                            type_family: SqlTypeFamily::SmallInt,
+                            type_family: SqlTypeFamilyOld::SmallInt,
                         }))
                     } else if self.integer_range.contains(&num) {
                         TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                             value: num,
-                            type_family: SqlTypeFamily::Integer,
+                            type_family: SqlTypeFamilyOld::Integer,
                         }))
                     } else {
                         TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                             value: num,
-                            type_family: SqlTypeFamily::BigInt,
+                            type_family: SqlTypeFamilyOld::BigInt,
                         }))
                     }
                 } else if self.real_range.contains(&num) {
                     TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                         value: num,
-                        type_family: SqlTypeFamily::Real,
+                        type_family: SqlTypeFamilyOld::Real,
                     }))
                 } else if self.double_precision_range.contains(&num) {
                     TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                         value: num,
-                        type_family: SqlTypeFamily::Double,
+                        type_family: SqlTypeFamilyOld::Double,
                     }))
                 } else {
                     unimplemented!()
@@ -172,7 +207,7 @@ impl TypeInferenceOld {
             },
             UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(value))) => TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                 value: BigDecimal::from(value),
-                type_family: SqlTypeFamily::Integer,
+                type_family: SqlTypeFamilyOld::Integer,
             })),
             UntypedTree::Item(UntypedItem::Const(UntypedValue::Null)) => TypedTreeOld::Item(TypedItemOld::Null(None)),
         }

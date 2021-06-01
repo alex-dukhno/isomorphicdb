@@ -15,3 +15,6 @@
 pub use query_processing_type_check::*;
 pub use query_processing_type_coercion::*;
 pub use query_processing_type_inference::*;
+
+#[cfg(test)]
+mod tests;

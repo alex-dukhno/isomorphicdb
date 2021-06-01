@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::{transaction_manager::TransactionContext, QueryPlanCache};
-use data_repr::scalar::ScalarValue;
+use data_repr::scalar::ScalarValueOld;
 use postgre_sql::{
     query_ast::{Extended, Query, Statement},
     query_response::{QueryError, QueryEvent},
@@ -21,7 +21,7 @@ use postgre_sql::{
 };
 use query_plan::QueryExecutionResult;
 use query_result::QueryExecutionError;
-use types::{SqlType, SqlTypeFamily};
+use types::{SqlType, SqlTypeFamilyOld};
 use untyped_queries::UntypedQuery;
 
 pub struct QueryExecutor;
@@ -50,8 +50,8 @@ impl QueryExecutor {
     pub fn execute_portal(
         &self,
         untyped_query: UntypedQuery,
-        params: Vec<SqlTypeFamily>,
-        arguments: Vec<ScalarValue>,
+        params: Vec<SqlTypeFamilyOld>,
+        arguments: Vec<ScalarValueOld>,
         txn: &TransactionContext,
         _query_plan_cache: &mut QueryPlanCache,
     ) -> Vec<OutboundMessage> {
@@ -78,7 +78,7 @@ impl QueryExecutor {
             },
             Statement::Extended(extended) => match extended {
                 Extended::Prepare { query, name, param_types } => {
-                    let params: Vec<SqlTypeFamily> = param_types.into_iter().map(|dt| SqlType::from(dt).family()).collect();
+                    let params: Vec<SqlTypeFamilyOld> = param_types.into_iter().map(|dt| SqlType::from(dt).family()).collect();
                     let typed_query = txn.process(query.clone(), params.clone()).unwrap();
                     let query_plan = txn.plan(typed_query);
                     query_plan_cache.allocate(name, query_plan, query, params);
@@ -91,7 +91,7 @@ impl QueryExecutor {
                         Some((query, params)) => {
                             let typed_query = txn.process(query.clone(), params.clone()).unwrap();
                             let query_plan = txn.plan(typed_query);
-                            match query_plan.execute(param_values.into_iter().map(ScalarValue::from).collect()) {
+                            match query_plan.execute(param_values.into_iter().map(ScalarValueOld::from).collect()) {
                                 Ok(QueryExecutionResult::Inserted(inserted)) => responses.push(OutboundMessage::RecordsInserted(inserted)),
                                 Ok(_) => {}
                                 Err(_) => unimplemented!(),

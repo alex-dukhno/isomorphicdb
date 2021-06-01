@@ -14,14 +14,11 @@
 
 use bigdecimal::{BigDecimal, ToPrimitive, Zero};
 use query_ast::{BinaryOperator, UnaryOperator};
-use query_result::QueryExecutionError;
-use regex::Regex;
-use scalar::ScalarValue;
 use std::{
     fmt::{self, Debug, Display, Formatter},
     str::FromStr,
 };
-use types::{Bool, SqlType, SqlTypeFamily};
+use types::{Bool, SqlType, SqlTypeFamilyOld};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BiArithmetic {
@@ -33,34 +30,34 @@ pub enum BiArithmetic {
     Exp,
 }
 
-impl BiArithmetic {
-    fn eval(&self, left: BigDecimal, right: BigDecimal) -> BigDecimal {
-        match self {
-            BiArithmetic::Add => left + right,
-            BiArithmetic::Sub => left - right,
-            BiArithmetic::Mul => left * right,
-            BiArithmetic::Div => left / right,
-            BiArithmetic::Mod => left % right,
-            BiArithmetic::Exp => {
-                fn exp(x: &BigDecimal, n: &BigDecimal) -> BigDecimal {
-                    if n < &BigDecimal::from(0) {
-                        exp(&(1 / x), &-n)
-                    } else if n == &BigDecimal::from(0) {
-                        BigDecimal::from(1)
-                    } else if n == &BigDecimal::from(1) {
-                        x.clone()
-                    } else if n % &BigDecimal::from(2) == BigDecimal::from(0) {
-                        exp(&(x * x), &(n.clone() / 2))
-                    } else {
-                        x * exp(&(x * x), &((n - &BigDecimal::from(1)) / 2))
-                    }
-                }
-
-                exp(&left, &right)
-            }
-        }
-    }
-}
+// impl BiArithmetic {
+//     fn eval(&self, left: BigDecimal, right: BigDecimal) -> BigDecimal {
+//         match self {
+//             BiArithmetic::Add => left + right,
+//             BiArithmetic::Sub => left - right,
+//             BiArithmetic::Mul => left * right,
+//             BiArithmetic::Div => left / right,
+//             BiArithmetic::Mod => left % right,
+//             BiArithmetic::Exp => {
+//                 fn exp(x: &BigDecimal, n: &BigDecimal) -> BigDecimal {
+//                     if n < &BigDecimal::from(0) {
+//                         exp(&(1 / x), &-n)
+//                     } else if n == &BigDecimal::from(0) {
+//                         BigDecimal::from(1)
+//                     } else if n == &BigDecimal::from(1) {
+//                         x.clone()
+//                     } else if n % &BigDecimal::from(2) == BigDecimal::from(0) {
+//                         exp(&(x * x), &(n.clone() / 2))
+//                     } else {
+//                         x * exp(&(x * x), &((n - &BigDecimal::from(1)) / 2))
+//                     }
+//                 }
+//
+//                 exp(&left, &right)
+//             }
+//         }
+//     }
+// }
 
 impl Display for BiArithmetic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -85,19 +82,19 @@ pub enum Comparison {
     Gt,
 }
 
-impl Comparison {
-    fn eval<E: PartialEq + PartialOrd + Debug>(&self, left_value: E, right_value: E) -> bool {
-        log::debug!("Comparison {:?} {:?} {:?}", left_value, self, right_value);
-        match self {
-            Comparison::NotEq => left_value != right_value,
-            Comparison::Eq => left_value == right_value,
-            Comparison::LtEq => left_value <= right_value,
-            Comparison::GtEq => left_value >= right_value,
-            Comparison::Lt => left_value < right_value,
-            Comparison::Gt => left_value > right_value,
-        }
-    }
-}
+// impl Comparison {
+//     fn eval<E: PartialEq + PartialOrd + Debug>(&self, left_value: E, right_value: E) -> bool {
+//         log::debug!("Comparison {:?} {:?} {:?}", left_value, self, right_value);
+//         match self {
+//             Comparison::NotEq => left_value != right_value,
+//             Comparison::Eq => left_value == right_value,
+//             Comparison::LtEq => left_value <= right_value,
+//             Comparison::GtEq => left_value >= right_value,
+//             Comparison::Lt => left_value < right_value,
+//             Comparison::Gt => left_value > right_value,
+//         }
+//     }
+// }
 
 impl Display for Comparison {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -121,17 +118,17 @@ pub enum Bitwise {
     Or,
 }
 
-impl Bitwise {
-    fn eval(&self, left: BigDecimal, right: BigDecimal) -> BigDecimal {
-        match self {
-            Bitwise::ShiftRight => BigDecimal::from(left.to_u64().unwrap() >> right.to_u64().unwrap()),
-            Bitwise::ShiftLeft => BigDecimal::from(left.to_u64().unwrap() << right.to_u64().unwrap()),
-            Bitwise::Xor => BigDecimal::from(left.to_u64().unwrap() ^ right.to_u64().unwrap()),
-            Bitwise::And => BigDecimal::from(left.to_u64().unwrap() & right.to_u64().unwrap()),
-            Bitwise::Or => BigDecimal::from(left.to_u64().unwrap() | right.to_u64().unwrap()),
-        }
-    }
-}
+// impl Bitwise {
+//     fn eval(&self, left: BigDecimal, right: BigDecimal) -> BigDecimal {
+//         match self {
+//             Bitwise::ShiftRight => BigDecimal::from(left.to_u64().unwrap() >> right.to_u64().unwrap()),
+//             Bitwise::ShiftLeft => BigDecimal::from(left.to_u64().unwrap() << right.to_u64().unwrap()),
+//             Bitwise::Xor => BigDecimal::from(left.to_u64().unwrap() ^ right.to_u64().unwrap()),
+//             Bitwise::And => BigDecimal::from(left.to_u64().unwrap() & right.to_u64().unwrap()),
+//             Bitwise::Or => BigDecimal::from(left.to_u64().unwrap() | right.to_u64().unwrap()),
+//         }
+//     }
+// }
 
 impl Display for Bitwise {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -151,14 +148,14 @@ pub enum BiLogical {
     And,
 }
 
-impl BiLogical {
-    fn eval(&self, left_value: bool, right_value: bool) -> bool {
-        match self {
-            BiLogical::Or => left_value || right_value,
-            BiLogical::And => left_value && right_value,
-        }
-    }
-}
+// impl BiLogical {
+//     fn eval(&self, left_value: bool, right_value: bool) -> bool {
+//         match self {
+//             BiLogical::Or => left_value || right_value,
+//             BiLogical::And => left_value && right_value,
+//         }
+//     }
+// }
 
 impl Display for BiLogical {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -175,17 +172,17 @@ pub enum Matching {
     NotLike,
 }
 
-impl Matching {
-    fn eval(&self, left: String, right: String) -> bool {
-        let matches = Regex::new(left.replace("%", ".*").replace("_", ".+").as_str())
-            .unwrap()
-            .is_match(right.as_str());
-        match self {
-            Matching::Like => matches,
-            Matching::NotLike => !matches,
-        }
-    }
-}
+// impl Matching {
+//     fn eval(&self, left: String, right: String) -> bool {
+//         let matches = Regex::new(left.replace("%", ".*").replace("_", ".+").as_str())
+//             .unwrap()
+//             .is_match(right.as_str());
+//         match self {
+//             Matching::Like => matches,
+//             Matching::NotLike => !matches,
+//         }
+//     }
+// }
 
 impl Display for Matching {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -199,11 +196,11 @@ impl Display for Matching {
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Concat;
 
-impl Concat {
-    fn eval(&self, left: String, right: String) -> String {
-        left + right.as_str()
-    }
-}
+// impl Concat {
+//     fn eval(&self, left: String, right: String) -> String {
+//         left + right.as_str()
+//     }
+// }
 
 impl Display for Concat {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -221,191 +218,197 @@ pub enum BiOperator {
     StringOp(Concat),
 }
 
-impl BiOperator {
-    pub fn eval(self, left: ScalarValue, right: ScalarValue) -> Result<ScalarValue, QueryExecutionError> {
-        match self {
-            BiOperator::Arithmetic(op) => match (left, right) {
-                (ScalarValue::Num { value: left_value, .. }, ScalarValue::Num { value: right_value, .. }) => Ok(ScalarValue::Num {
-                    value: op.eval(left_value, right_value),
-                    type_family: SqlTypeFamily::BigInt,
-                }),
-                (ScalarValue::Num { type_family, .. }, ScalarValue::String(value)) => {
-                    Err(QueryExecutionError::invalid_text_representation(type_family, value))
-                }
-                (ScalarValue::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    type_family,
-                    other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-                (ScalarValue::String(value), ScalarValue::Num { type_family, .. }) => {
-                    Err(QueryExecutionError::invalid_text_representation(type_family, value))
-                }
-                (other, ScalarValue::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                    type_family,
-                )),
-                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                    other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-            BiOperator::Comparison(op) => match (left, right) {
-                (ScalarValue::Bool(left_value), ScalarValue::Bool(right_value)) => Ok(ScalarValue::Bool(op.eval(left_value, right_value))),
-                (ScalarValue::String(left_value), ScalarValue::String(right_value)) => Ok(ScalarValue::Bool(op.eval(left_value, right_value))),
-                (ScalarValue::Num { value: left_value, .. }, ScalarValue::Num { value: right_value, .. }) => {
-                    Ok(ScalarValue::Bool(op.eval(left_value, right_value)))
-                }
-                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                    other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-            BiOperator::Bitwise(op) => match (left, right) {
-                (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                )
-                | (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                )
-                | (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                )
-                | (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                )
-                | (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                )
-                | (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                )
-                | (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                )
-                | (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::SmallInt,
-                    },
-                )
-                | (
-                    ScalarValue::Num {
-                        value: left_value,
-                        type_family: SqlTypeFamily::BigInt,
-                    },
-                    ScalarValue::Num {
-                        value: right_value,
-                        type_family: SqlTypeFamily::Integer,
-                    },
-                ) => Ok(ScalarValue::Num {
-                    value: op.eval(left_value, right_value),
-                    type_family: SqlTypeFamily::BigInt,
-                }),
-                (ScalarValue::Num { type_family, .. }, ScalarValue::String(value)) => {
-                    Err(QueryExecutionError::invalid_text_representation(type_family, value))
-                }
-                (ScalarValue::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    type_family,
-                    other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-                (ScalarValue::String(value), ScalarValue::Num { type_family, .. }) => {
-                    Err(QueryExecutionError::invalid_text_representation(type_family, value))
-                }
-                (other, ScalarValue::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                    type_family,
-                )),
-                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                    other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-            BiOperator::Logical(op) => match (left, right) {
-                (ScalarValue::Bool(left_value), ScalarValue::Bool(right_value)) => Ok(ScalarValue::Bool(op.eval(left_value, right_value))),
-                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                    other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-            BiOperator::Matching(op) => match (left, right) {
-                (ScalarValue::String(left_value), ScalarValue::String(right_value)) => Ok(ScalarValue::Bool(op.eval(left_value, right_value))),
-                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                    other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-            BiOperator::StringOp(op) => match (left, right) {
-                (ScalarValue::String(left_value), ScalarValue::String(right_value)) => Ok(ScalarValue::String(op.eval(left_value, right_value))),
-                (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
-                    self,
-                    other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                    other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-        }
-    }
-}
+// impl BiOperator {
+//     pub fn eval(self, left: ScalarValueOld, right: ScalarValueOld) -> Result<ScalarValueOld, QueryExecutionError> {
+//         match self {
+//             BiOperator::Arithmetic(op) => match (left, right) {
+//                 (ScalarValueOld::Num { value: left_value, .. }, ScalarValueOld::Num { value: right_value, .. }) => Ok(ScalarValueOld::Num {
+//                     value: op.eval(left_value, right_value),
+//                     type_family: SqlTypeFamilyOld::BigInt,
+//                 }),
+//                 (ScalarValueOld::Num { type_family, .. }, ScalarValueOld::String(value)) => {
+//                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
+//                 }
+//                 (ScalarValueOld::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     type_family,
+//                     other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//                 (ScalarValueOld::String(value), ScalarValueOld::Num { type_family, .. }) => {
+//                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
+//                 }
+//                 (other, ScalarValueOld::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                     type_family,
+//                 )),
+//                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                     other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//             BiOperator::Comparison(op) => match (left, right) {
+//                 (ScalarValueOld::Bool(left_value), ScalarValueOld::Bool(right_value)) => Ok(ScalarValueOld::Bool(op.eval(left_value, right_value))),
+//                 (ScalarValueOld::String(left_value), ScalarValueOld::String(right_value)) => {
+//                     Ok(ScalarValueOld::Bool(op.eval(left_value, right_value)))
+//                 }
+//                 (ScalarValueOld::Num { value: left_value, .. }, ScalarValueOld::Num { value: right_value, .. }) => {
+//                     Ok(ScalarValueOld::Bool(op.eval(left_value, right_value)))
+//                 }
+//                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                     other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//             BiOperator::Bitwise(op) => match (left, right) {
+//                 (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::SmallInt,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::SmallInt,
+//                     },
+//                 )
+//                 | (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::Integer,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::Integer,
+//                     },
+//                 )
+//                 | (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::BigInt,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::BigInt,
+//                     },
+//                 )
+//                 | (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::SmallInt,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::Integer,
+//                     },
+//                 )
+//                 | (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::SmallInt,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::BigInt,
+//                     },
+//                 )
+//                 | (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::Integer,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::SmallInt,
+//                     },
+//                 )
+//                 | (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::Integer,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::BigInt,
+//                     },
+//                 )
+//                 | (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::BigInt,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::SmallInt,
+//                     },
+//                 )
+//                 | (
+//                     ScalarValueOld::Num {
+//                         value: left_value,
+//                         type_family: SqlTypeFamilyOld::BigInt,
+//                     },
+//                     ScalarValueOld::Num {
+//                         value: right_value,
+//                         type_family: SqlTypeFamilyOld::Integer,
+//                     },
+//                 ) => Ok(ScalarValueOld::Num {
+//                     value: op.eval(left_value, right_value),
+//                     type_family: SqlTypeFamilyOld::BigInt,
+//                 }),
+//                 (ScalarValueOld::Num { type_family, .. }, ScalarValueOld::String(value)) => {
+//                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
+//                 }
+//                 (ScalarValueOld::Num { type_family, .. }, other) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     type_family,
+//                     other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//                 (ScalarValueOld::String(value), ScalarValueOld::Num { type_family, .. }) => {
+//                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
+//                 }
+//                 (other, ScalarValueOld::Num { type_family, .. }) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                     type_family,
+//                 )),
+//                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                     other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//             BiOperator::Logical(op) => match (left, right) {
+//                 (ScalarValueOld::Bool(left_value), ScalarValueOld::Bool(right_value)) => Ok(ScalarValueOld::Bool(op.eval(left_value, right_value))),
+//                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                     other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//             BiOperator::Matching(op) => match (left, right) {
+//                 (ScalarValueOld::String(left_value), ScalarValueOld::String(right_value)) => {
+//                     Ok(ScalarValueOld::Bool(op.eval(left_value, right_value)))
+//                 }
+//                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                     other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//             BiOperator::StringOp(op) => match (left, right) {
+//                 (ScalarValueOld::String(left_value), ScalarValueOld::String(right_value)) => {
+//                     Ok(ScalarValueOld::String(op.eval(left_value, right_value)))
+//                 }
+//                 (other_left, other_right) => Err(QueryExecutionError::undefined_bi_function(
+//                     self,
+//                     other_left.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                     other_right.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//         }
+//     }
+// }
 
 impl From<BinaryOperator> for BiOperator {
     fn from(operator: BinaryOperator) -> Self {
@@ -457,84 +460,100 @@ pub enum UnOperator {
     Cast(SqlType),
 }
 
-impl UnOperator {
-    pub fn eval(self, value: ScalarValue) -> Result<ScalarValue, QueryExecutionError> {
-        match self {
-            UnOperator::Arithmetic(operator) => match value {
-                ScalarValue::Num { value, type_family } => operator.eval(value, type_family),
-                other => Err(QueryExecutionError::undefined_function(
-                    self,
-                    other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-            UnOperator::LogicalNot => match value {
-                ScalarValue::Bool(value) => Ok(ScalarValue::Bool(!value)),
-                other => Err(QueryExecutionError::datatype_mismatch(
-                    self,
-                    SqlTypeFamily::Bool,
-                    other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-            UnOperator::BitwiseNot => match value {
-                ScalarValue::Num {
-                    value,
-                    type_family: SqlTypeFamily::SmallInt,
-                } => Ok(ScalarValue::Num {
-                    value: BigDecimal::from(!value.to_i16().unwrap()),
-                    type_family: SqlTypeFamily::SmallInt,
-                }),
-                ScalarValue::Num {
-                    value,
-                    type_family: SqlTypeFamily::Integer,
-                } => Ok(ScalarValue::Num {
-                    value: BigDecimal::from(!value.to_i32().unwrap()),
-                    type_family: SqlTypeFamily::Integer,
-                }),
-                ScalarValue::Num {
-                    value,
-                    type_family: SqlTypeFamily::BigInt,
-                } => Ok(ScalarValue::Num {
-                    value: BigDecimal::from(!value.to_i64().unwrap()),
-                    type_family: SqlTypeFamily::BigInt,
-                }),
-                other => Err(QueryExecutionError::undefined_function(
-                    self,
-                    other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
-                )),
-            },
-            UnOperator::Cast(type_family) => match value {
-                ScalarValue::Null => Ok(ScalarValue::Null),
-                ScalarValue::Bool(value) => match type_family {
-                    SqlType::Bool => Ok(ScalarValue::Bool(value)),
-                    SqlType::Str { .. } => Ok(ScalarValue::String(value.to_string())),
-                    other => Err(QueryExecutionError::cannot_coerce(SqlTypeFamily::Bool, other)),
-                },
-                ScalarValue::Num { value, .. } => match type_family {
-                    SqlType::Bool => Ok(ScalarValue::Bool(!value.is_zero())),
-                    SqlType::Str { .. } => Ok(ScalarValue::String(value.to_string())),
-                    other => Ok(ScalarValue::Num {
-                        value,
-                        type_family: other.family(),
-                    }),
-                },
-                ScalarValue::String(value) => match type_family {
-                    SqlType::Str { .. } => Ok(ScalarValue::String(value)),
-                    SqlType::Bool => match Bool::from_str(value.as_str()) {
-                        Ok(Bool(boolean)) => Ok(ScalarValue::Bool(boolean)),
-                        Err(_) => Err(QueryExecutionError::invalid_text_representation(SqlTypeFamily::Bool, value)),
-                    },
-                    other => match BigDecimal::from_str(value.as_str()) {
-                        Ok(value) => Ok(ScalarValue::Num {
-                            value,
-                            type_family: other.family(),
-                        }),
-                        Err(_) => Err(QueryExecutionError::invalid_text_representation(other, value)),
-                    },
-                },
-            },
-        }
-    }
-}
+// impl UnOperator {
+//     pub fn eval(self, value: ScalarValue) -> Result<ScalarValue, QueryExecutionError> {
+//         match self {
+//             UnOperator::Cast(sql_type) => match sql_type {
+//                 SqlType::Bool => {}
+//                 SqlType::Str { .. } => {}
+//                 SqlType::Num(_) => {}
+//                 SqlType::Unknown => {}
+//             },
+//             UnOperator::Arithmetic(_) => unimplemented!(),
+//             UnOperator::LogicalNot => unimplemented!(),
+//             UnOperator::BitwiseNot => unimplemented!(),
+//         }
+//     }
+// }
+//
+// impl UnOperator {
+//     pub fn eval_old(self, value: ScalarValueOld) -> Result<ScalarValueOld, QueryExecutionError> {
+//         match self {
+//             UnOperator::Arithmetic(operator) => match value {
+//                 ScalarValueOld::Num { value, type_family } => operator.eval(value, type_family),
+//                 other => Err(QueryExecutionError::undefined_unary_function(
+//                     self,
+//                     other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//             UnOperator::LogicalNot => match value {
+//                 ScalarValueOld::Bool(value) => Ok(ScalarValueOld::Bool(!value)),
+//                 other => Err(QueryExecutionError::datatype_mismatch(
+//                     self,
+//                     SqlTypeFamilyOld::Bool,
+//                     other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//             UnOperator::BitwiseNot => match value {
+//                 ScalarValueOld::Num {
+//                     value,
+//                     type_family: SqlTypeFamilyOld::SmallInt,
+//                 } => Ok(ScalarValueOld::Num {
+//                     value: BigDecimal::from(!value.to_i16().unwrap()),
+//                     type_family: SqlTypeFamilyOld::SmallInt,
+//                 }),
+//                 ScalarValueOld::Num {
+//                     value,
+//                     type_family: SqlTypeFamilyOld::Integer,
+//                 } => Ok(ScalarValueOld::Num {
+//                     value: BigDecimal::from(!value.to_i32().unwrap()),
+//                     type_family: SqlTypeFamilyOld::Integer,
+//                 }),
+//                 ScalarValueOld::Num {
+//                     value,
+//                     type_family: SqlTypeFamilyOld::BigInt,
+//                 } => Ok(ScalarValueOld::Num {
+//                     value: BigDecimal::from(!value.to_i64().unwrap()),
+//                     type_family: SqlTypeFamilyOld::BigInt,
+//                 }),
+//                 other => Err(QueryExecutionError::undefined_unary_function(
+//                     self,
+//                     other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
+//                 )),
+//             },
+//             UnOperator::Cast(sql_type) => match value {
+//                 ScalarValueOld::Null => Ok(ScalarValueOld::Null),
+//                 ScalarValueOld::Bool(value) => match sql_type {
+//                     SqlType::Bool => Ok(ScalarValueOld::Bool(value)),
+//                     SqlType::Str { .. } => Ok(ScalarValueOld::String(value.to_string())),
+//                     other => Err(QueryExecutionError::cannot_coerce(SqlTypeFamilyOld::Bool, other)),
+//                 },
+//                 ScalarValueOld::Num { value, .. } => match sql_type {
+//                     SqlType::Bool => Ok(ScalarValueOld::Bool(!value.is_zero())),
+//                     SqlType::Str { .. } => Ok(ScalarValueOld::String(value.to_string())),
+//                     other => Ok(ScalarValueOld::Num {
+//                         value,
+//                         type_family: other.family(),
+//                     }),
+//                 },
+//                 ScalarValueOld::String(value) => match sql_type {
+//                     SqlType::Str { .. } => Ok(ScalarValueOld::String(value)),
+//                     SqlType::Bool => match Bool::from_str(value.as_str()) {
+//                         Ok(Bool(boolean)) => Ok(ScalarValueOld::Bool(boolean)),
+//                         Err(_) => Err(QueryExecutionError::invalid_text_representation(SqlTypeFamilyOld::Bool, value)),
+//                     },
+//                     other => match BigDecimal::from_str(value.as_str()) {
+//                         Ok(value) => Ok(ScalarValueOld::Num {
+//                             value,
+//                             type_family: other.family(),
+//                         }),
+//                         Err(_) => Err(QueryExecutionError::invalid_text_representation(other, value)),
+//                     },
+//                 },
+//             },
+//         }
+//     }
+// }
 
 impl From<UnaryOperator> for UnOperator {
     fn from(operator: UnaryOperator) -> UnOperator {
@@ -573,42 +592,42 @@ pub enum UnArithmetic {
     Abs,
 }
 
-impl UnArithmetic {
-    fn eval(&self, value: BigDecimal, type_family: SqlTypeFamily) -> Result<ScalarValue, QueryExecutionError> {
-        match self {
-            UnArithmetic::Neg => Ok(ScalarValue::Num { value: -value, type_family }),
-            UnArithmetic::Pos => Ok(ScalarValue::Num { value, type_family }),
-            UnArithmetic::SquareRoot => Ok(ScalarValue::Num {
-                value: value.sqrt().ok_or(QueryExecutionError::InvalidArgumentForPowerFunction)?,
-                type_family: SqlTypeFamily::Double,
-            }),
-            UnArithmetic::CubeRoot => Ok(ScalarValue::Num {
-                value: value.cbrt(),
-                type_family: SqlTypeFamily::Double,
-            }),
-            UnArithmetic::Factorial => {
-                if vec![SqlTypeFamily::SmallInt, SqlTypeFamily::Integer, SqlTypeFamily::BigInt].contains(&type_family) {
-                    let mut result = BigDecimal::from(1);
-                    let mut n = BigDecimal::from(1);
-                    while n <= value {
-                        result *= n.clone();
-                        n += BigDecimal::from(1);
-                    }
-                    Ok(ScalarValue::Num {
-                        value: result,
-                        type_family: SqlTypeFamily::BigInt,
-                    })
-                } else {
-                    Err(QueryExecutionError::undefined_function(self, type_family))
-                }
-            }
-            UnArithmetic::Abs => Ok(ScalarValue::Num {
-                value: value.abs(),
-                type_family,
-            }),
-        }
-    }
-}
+// impl UnArithmetic {
+//     fn eval(&self, value: BigDecimal, type_family: SqlTypeFamilyOld) -> Result<ScalarValueOld, QueryExecutionError> {
+//         match self {
+//             UnArithmetic::Neg => Ok(ScalarValueOld::Num { value: -value, type_family }),
+//             UnArithmetic::Pos => Ok(ScalarValueOld::Num { value, type_family }),
+//             UnArithmetic::SquareRoot => Ok(ScalarValueOld::Num {
+//                 value: value.sqrt().ok_or(QueryExecutionError::InvalidArgumentForPowerFunction)?,
+//                 type_family: SqlTypeFamilyOld::Double,
+//             }),
+//             UnArithmetic::CubeRoot => Ok(ScalarValueOld::Num {
+//                 value: value.cbrt(),
+//                 type_family: SqlTypeFamilyOld::Double,
+//             }),
+//             UnArithmetic::Factorial => {
+//                 if vec![SqlTypeFamilyOld::SmallInt, SqlTypeFamilyOld::Integer, SqlTypeFamilyOld::BigInt].contains(&type_family) {
+//                     let mut result = BigDecimal::from(1);
+//                     let mut n = BigDecimal::from(1);
+//                     while n <= value {
+//                         result *= n.clone();
+//                         n += BigDecimal::from(1);
+//                     }
+//                     Ok(ScalarValueOld::Num {
+//                         value: result,
+//                         type_family: SqlTypeFamilyOld::BigInt,
+//                     })
+//                 } else {
+//                     Err(QueryExecutionError::undefined_unary_function(self, type_family))
+//                 }
+//             }
+//             UnArithmetic::Abs => Ok(ScalarValueOld::Num {
+//                 value: value.abs(),
+//                 type_family,
+//             }),
+//         }
+//     }
+// }
 
 impl Display for UnArithmetic {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -623,5 +642,5 @@ impl Display for UnArithmetic {
     }
 }
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;

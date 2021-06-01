@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use operators::UnArithmetic;
+use operators_old::UnArithmetic;
 
 #[cfg(test)]
 mod unary_minus {
@@ -26,13 +26,13 @@ mod unary_minus {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32767),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(-32767),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
 
@@ -41,13 +41,13 @@ mod unary_minus {
                 op: UnOperator::Arithmetic(UnArithmetic::Neg),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32768),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(-32768),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
     }
@@ -61,14 +61,14 @@ mod unary_minus {
                     op: UnOperator::Arithmetic(UnArithmetic::Neg),
                     item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                         value: BigDecimal::from(32767),
-                        type_family: SqlTypeFamily::Integer
+                        type_family: SqlTypeFamilyOld::Integer
                     }))),
                 })
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(32767),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
 
@@ -79,14 +79,14 @@ mod unary_minus {
                     op: UnOperator::Arithmetic(UnArithmetic::Neg),
                     item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                         value: BigDecimal::from(32768),
-                        type_family: SqlTypeFamily::Integer
+                        type_family: SqlTypeFamilyOld::Integer
                     }))),
                 })
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(32768),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
     }
@@ -99,9 +99,9 @@ mod unary_minus {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Neg),
-                SqlTypeFamily::String
+                SqlTypeFamilyOld::String
             ))
         );
     }
@@ -114,9 +114,9 @@ mod unary_minus {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Neg),
-                SqlTypeFamily::Bool
+                SqlTypeFamilyOld::Bool
             ))
         );
     }
@@ -133,13 +133,13 @@ mod unary_plus {
                 op: UnOperator::Arithmetic(UnArithmetic::Pos),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32767),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(32767),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
 
@@ -148,13 +148,13 @@ mod unary_plus {
                 op: UnOperator::Arithmetic(UnArithmetic::Pos),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32768),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(32768),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
     }
@@ -167,9 +167,9 @@ mod unary_plus {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Pos),
-                SqlTypeFamily::String
+                SqlTypeFamilyOld::String
             ))
         );
     }
@@ -182,9 +182,9 @@ mod unary_plus {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Pos),
-                SqlTypeFamily::Bool
+                SqlTypeFamilyOld::Bool
             ))
         );
     }
@@ -202,7 +202,7 @@ mod unary_not {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true)))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Bool(false))
+            Ok(ScalarValueOld::Bool(false))
         );
     }
 
@@ -213,14 +213,14 @@ mod unary_not {
                 op: UnOperator::LogicalNot,
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(0),
-                    type_family: SqlTypeFamily::SmallInt
+                    type_family: SqlTypeFamilyOld::SmallInt
                 }))),
             }
             .eval(&[], &[]),
             Err(QueryExecutionError::datatype_mismatch(
                 UnOperator::LogicalNot,
-                SqlTypeFamily::Bool,
-                SqlTypeFamily::SmallInt
+                SqlTypeFamilyOld::Bool,
+                SqlTypeFamilyOld::SmallInt
             ))
         );
     }
@@ -235,8 +235,8 @@ mod unary_not {
             .eval(&[], &[]),
             Err(QueryExecutionError::datatype_mismatch(
                 UnOperator::LogicalNot,
-                SqlTypeFamily::Bool,
-                SqlTypeFamily::String
+                SqlTypeFamilyOld::Bool,
+                SqlTypeFamilyOld::String
             ))
         );
     }
@@ -253,13 +253,13 @@ mod unary_bitwise_not {
                 op: UnOperator::BitwiseNot,
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(1),
-                    type_family: SqlTypeFamily::SmallInt
+                    type_family: SqlTypeFamilyOld::SmallInt
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(!1),
-                type_family: SqlTypeFamily::SmallInt
+                type_family: SqlTypeFamilyOld::SmallInt
             })
         );
 
@@ -268,13 +268,13 @@ mod unary_bitwise_not {
                 op: UnOperator::BitwiseNot,
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(i32::MAX - i16::MAX as i32),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(!(i32::MAX - i16::MAX as i32)),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
 
@@ -283,13 +283,13 @@ mod unary_bitwise_not {
                 op: UnOperator::BitwiseNot,
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(i64::MAX - i32::MAX as i64),
-                    type_family: SqlTypeFamily::BigInt
+                    type_family: SqlTypeFamilyOld::BigInt
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(!(i64::MAX - i32::MAX as i64)),
-                type_family: SqlTypeFamily::BigInt
+                type_family: SqlTypeFamilyOld::BigInt
             })
         );
     }
@@ -301,11 +301,14 @@ mod unary_bitwise_not {
                 op: UnOperator::BitwiseNot,
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(1),
-                    type_family: SqlTypeFamily::Real
+                    type_family: SqlTypeFamilyOld::Real
                 }))),
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Real))
+            Err(QueryExecutionError::undefined_unary_function(
+                UnOperator::BitwiseNot,
+                SqlTypeFamilyOld::Real
+            ))
         );
 
         assert_eq!(
@@ -313,11 +316,14 @@ mod unary_bitwise_not {
                 op: UnOperator::BitwiseNot,
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(i32::MAX - i16::MAX as i32),
-                    type_family: SqlTypeFamily::Double
+                    type_family: SqlTypeFamilyOld::Double
                 }))),
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Double))
+            Err(QueryExecutionError::undefined_unary_function(
+                UnOperator::BitwiseNot,
+                SqlTypeFamilyOld::Double
+            ))
         );
     }
 
@@ -329,7 +335,10 @@ mod unary_bitwise_not {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned())))),
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::String))
+            Err(QueryExecutionError::undefined_unary_function(
+                UnOperator::BitwiseNot,
+                SqlTypeFamilyOld::String
+            ))
         );
     }
 
@@ -341,7 +350,10 @@ mod unary_bitwise_not {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(UnOperator::BitwiseNot, SqlTypeFamily::Bool))
+            Err(QueryExecutionError::undefined_unary_function(
+                UnOperator::BitwiseNot,
+                SqlTypeFamilyOld::Bool
+            ))
         );
     }
 }
@@ -357,13 +369,13 @@ mod square_root {
                 op: UnOperator::Arithmetic(UnArithmetic::SquareRoot),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32768),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(32768).sqrt().unwrap(),
-                type_family: SqlTypeFamily::Double
+                type_family: SqlTypeFamilyOld::Double
             })
         );
     }
@@ -375,7 +387,7 @@ mod square_root {
                 op: UnOperator::Arithmetic(UnArithmetic::SquareRoot),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(-32768),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
@@ -391,9 +403,9 @@ mod square_root {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::SquareRoot),
-                SqlTypeFamily::String
+                SqlTypeFamilyOld::String
             ))
         );
     }
@@ -406,9 +418,9 @@ mod square_root {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::SquareRoot),
-                SqlTypeFamily::Bool
+                SqlTypeFamilyOld::Bool
             ))
         );
     }
@@ -425,13 +437,13 @@ mod cube_root {
                 op: UnOperator::Arithmetic(UnArithmetic::CubeRoot),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(32768),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(32768).cbrt(),
-                type_family: SqlTypeFamily::Double
+                type_family: SqlTypeFamilyOld::Double
             })
         );
     }
@@ -444,9 +456,9 @@ mod cube_root {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::CubeRoot),
-                SqlTypeFamily::String
+                SqlTypeFamilyOld::String
             ))
         );
     }
@@ -459,9 +471,9 @@ mod cube_root {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::CubeRoot),
-                SqlTypeFamily::Bool
+                SqlTypeFamilyOld::Bool
             ))
         );
     }
@@ -478,13 +490,13 @@ mod factorial {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(3),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(6),
-                type_family: SqlTypeFamily::BigInt
+                type_family: SqlTypeFamilyOld::BigInt
             })
         );
     }
@@ -496,13 +508,13 @@ mod factorial {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(-3),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(1),
-                type_family: SqlTypeFamily::BigInt
+                type_family: SqlTypeFamilyOld::BigInt
             })
         );
     }
@@ -514,13 +526,13 @@ mod factorial {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(1),
-                    type_family: SqlTypeFamily::Real
+                    type_family: SqlTypeFamilyOld::Real
                 }))),
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Factorial),
-                SqlTypeFamily::Real
+                SqlTypeFamilyOld::Real
             ))
         );
 
@@ -529,13 +541,13 @@ mod factorial {
                 op: UnOperator::Arithmetic(UnArithmetic::Factorial),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(i32::MAX - i16::MAX as i32),
-                    type_family: SqlTypeFamily::Double
+                    type_family: SqlTypeFamilyOld::Double
                 }))),
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Factorial),
-                SqlTypeFamily::Double
+                SqlTypeFamilyOld::Double
             ))
         );
     }
@@ -548,9 +560,9 @@ mod factorial {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Factorial),
-                SqlTypeFamily::String
+                SqlTypeFamilyOld::String
             ))
         );
     }
@@ -563,9 +575,9 @@ mod factorial {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Factorial),
-                SqlTypeFamily::Bool
+                SqlTypeFamilyOld::Bool
             ))
         );
     }
@@ -582,13 +594,13 @@ mod absolute_value {
                 op: UnOperator::Arithmetic(UnArithmetic::Abs),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(3),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(3),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
     }
@@ -600,13 +612,13 @@ mod absolute_value {
                 op: UnOperator::Arithmetic(UnArithmetic::Abs),
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Num {
                     value: BigDecimal::from(-3),
-                    type_family: SqlTypeFamily::Integer
+                    type_family: SqlTypeFamilyOld::Integer
                 }))),
             }
             .eval(&[], &[]),
-            Ok(ScalarValue::Num {
+            Ok(ScalarValueOld::Num {
                 value: BigDecimal::from(3),
-                type_family: SqlTypeFamily::Integer
+                type_family: SqlTypeFamilyOld::Integer
             })
         );
     }
@@ -619,9 +631,9 @@ mod absolute_value {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::String("str".to_owned()))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Abs),
-                SqlTypeFamily::String
+                SqlTypeFamilyOld::String
             ))
         );
     }
@@ -634,9 +646,9 @@ mod absolute_value {
                 item: Box::new(TypedTreeOld::Item(TypedItemOld::Const(TypedValueOld::Bool(true))))
             }
             .eval(&[], &[]),
-            Err(QueryExecutionError::undefined_function(
+            Err(QueryExecutionError::undefined_unary_function(
                 UnOperator::Arithmetic(UnArithmetic::Abs),
-                SqlTypeFamily::Bool
+                SqlTypeFamilyOld::Bool
             ))
         );
     }

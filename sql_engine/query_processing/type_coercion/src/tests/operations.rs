@@ -14,7 +14,7 @@
 
 use super::*;
 use bigdecimal::BigDecimal;
-use operators::{BiArithmetic, BiOperator, UnArithmetic, UnOperator};
+use operators_old::{BiArithmetic, BiOperator, UnArithmetic, UnOperator};
 
 #[test]
 fn negate_number() {

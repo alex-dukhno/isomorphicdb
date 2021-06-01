@@ -17,7 +17,7 @@ use crate::{
     transaction_manager::{TransactionContext, TransactionManager},
     QueryPlanCache,
 };
-use data_repr::scalar::ScalarValue;
+use data_repr::scalar::ScalarValueOld;
 use postgre_sql::{
     query_ast::{Request, Statement, Transaction},
     query_parser::QueryParser,
@@ -28,7 +28,7 @@ use postgre_sql::{
     },
 };
 use storage::Database;
-use types::SqlTypeFamily;
+use types::SqlTypeFamilyOld;
 
 pub struct Worker;
 
@@ -185,7 +185,7 @@ impl Worker {
                             Some((untyped_query, _, param_types)) => {
                                 let (untyped_query, param_types) = (untyped_query.clone(), param_types.to_vec());
 
-                                let mut arguments: Vec<ScalarValue> = vec![];
+                                let mut arguments: Vec<ScalarValueOld> = vec![];
                                 debug_assert!(
                                     query_params.len() == param_types.len() && query_params.len() == query_param_formats.len(),
                                     "encoded parameter values, their types and formats have to have same length"
@@ -195,7 +195,7 @@ impl Worker {
                                     let typ = param_types[i];
                                     let format = query_param_formats[i];
                                     match raw_param {
-                                        None => arguments.push(ScalarValue::Null),
+                                        None => arguments.push(ScalarValueOld::Null),
                                         Some(bytes) => {
                                             log::debug!("PG Type {:?}", typ);
                                             match decode(typ, format, &bytes) {
@@ -209,7 +209,7 @@ impl Worker {
                                     untyped_query,
                                     result_value_formats: result_value_formats.clone(),
                                     arguments,
-                                    param_types: param_types.iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
+                                    param_types: param_types.iter().map(From::from).collect::<Vec<SqlTypeFamilyOld>>(),
                                 };
                                 query_plan_cache.bind_portal(statement_name, portal_name, portal);
                                 connection.send(OutboundMessage::BindComplete).unwrap();

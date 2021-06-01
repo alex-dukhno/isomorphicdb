@@ -6,6 +6,6 @@ edition = "2018"
 publish = false
 
 [dependencies]
-operators = { path = "../operators" }
+operators_old = { path = "../operators_old" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

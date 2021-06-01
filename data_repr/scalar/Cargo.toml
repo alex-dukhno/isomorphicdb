@@ -8,7 +8,10 @@ publish = false
 [dependencies]
 binary = { path = "../binary" }
 query_ast = { path = "../../inter_reprs/query_ast" }
+operators = { path = "../../inter_reprs/operators" }
 types = { path = "../../types" }
 wire_protocol_payload = { path = "../../postgre_sql/wire_protocol/payload" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
+chrono = "0.4"
+ordered-float = "2.1.1"

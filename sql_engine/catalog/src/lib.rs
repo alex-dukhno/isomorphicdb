@@ -18,7 +18,7 @@ use data_definition_execution_plan::{
 };
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use storage::Transaction;
-use types::{SqlType, SqlTypeFamily};
+use types::{SqlType, SqlTypeFamilyOld};
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
 const SCHEMATA_TABLE: &str = "SCHEMATA";
@@ -83,7 +83,7 @@ impl<'c> CatalogHandler<'c> {
         }
     }
 
-    pub fn columns(&self, full_table_name: &FullTableName) -> Vec<(String, SqlTypeFamily)> {
+    pub fn columns(&self, full_table_name: &FullTableName) -> Vec<(String, SqlTypeFamilyOld)> {
         self.columns_short(full_table_name)
             .into_iter()
             .map(|(name, sql_type)| (name, sql_type.family()))

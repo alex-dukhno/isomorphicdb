@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use operators::{BiOperator, UnOperator};
+use operators_old::{BiOperator, UnOperator};
 use std::fmt::{self, Display, Formatter};
-use types::{Bool, SqlType, SqlTypeFamily};
+use types::{Bool, SqlType, SqlTypeFamilyOld};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum UntypedItem {
@@ -33,11 +33,11 @@ pub enum UntypedValue {
 }
 
 impl UntypedValue {
-    pub fn kind(&self) -> Option<SqlTypeFamily> {
+    pub fn kind(&self) -> Option<SqlTypeFamilyOld> {
         match self {
-            UntypedValue::Int(_) => Some(SqlTypeFamily::Integer),
-            UntypedValue::Number(_) => Some(SqlTypeFamily::Real),
-            UntypedValue::Bool(_) => Some(SqlTypeFamily::Bool),
+            UntypedValue::Int(_) => Some(SqlTypeFamilyOld::Integer),
+            UntypedValue::Number(_) => Some(SqlTypeFamilyOld::Real),
+            UntypedValue::Bool(_) => Some(SqlTypeFamilyOld::Bool),
             UntypedValue::Literal(_) => None,
             UntypedValue::Null => None,
         }

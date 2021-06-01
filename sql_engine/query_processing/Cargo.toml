@@ -9,3 +9,10 @@ publish = false
 query_processing_type_check = { path = "type_check" }
 query_processing_type_coercion = { path = "type_coercion" }
 query_processing_type_inference = { path = "type_inference" }
+
+[dev-dependencies]
+query_ast = { path = "../../inter_reprs/query_ast" }
+typed_tree = { path = "../../inter_reprs/typed_tree" }
+checked_tree = { path = "../../inter_reprs/checked_tree" }
+operators = { path = "../../inter_reprs/operators" }
+types = { path = "../../types" }

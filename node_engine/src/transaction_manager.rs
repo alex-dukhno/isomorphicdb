@@ -27,7 +27,7 @@ use std::fmt::{self, Debug, Formatter};
 use storage::{Database, Transaction};
 use typed_queries::{TypedDeleteQuery, TypedInsertQuery, TypedQuery, TypedSelectQuery, TypedUpdateQuery};
 use typed_tree::TypedTreeOld;
-use types::SqlTypeFamily;
+use types::SqlTypeFamilyOld;
 use untyped_queries::{UntypedInsertQuery, UntypedQuery, UntypedUpdateQuery};
 
 pub struct TransactionManager {
@@ -97,7 +97,7 @@ impl<'t> TransactionContext<'t> {
         Ok(self.query_analyzer.analyze(query)?)
     }
 
-    pub fn process_untyped_query(&self, untyped_query: UntypedQuery, param_types: Vec<SqlTypeFamily>) -> Result<TypedQuery, QueryError> {
+    pub fn process_untyped_query(&self, untyped_query: UntypedQuery, param_types: Vec<SqlTypeFamilyOld>) -> Result<TypedQuery, QueryError> {
         match untyped_query {
             UntypedQuery::Insert(insert) => {
                 let type_coerced = insert
@@ -186,7 +186,7 @@ impl<'t> TransactionContext<'t> {
         Ok(self.catalog.apply(schema_change)?.into())
     }
 
-    pub fn process(&self, query: Query, param_types: Vec<SqlTypeFamily>) -> Result<TypedQuery, QueryError> {
+    pub fn process(&self, query: Query, param_types: Vec<SqlTypeFamilyOld>) -> Result<TypedQuery, QueryError> {
         match self.query_analyzer.analyze(query)? {
             UntypedQuery::Insert(insert) => {
                 let type_coerced = insert

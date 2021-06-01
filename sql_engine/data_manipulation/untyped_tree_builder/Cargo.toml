@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 definition = { path = "../../../definition" }
-operators = { path = "../../../inter_reprs/operators" }
+operators_old = { path = "../../../inter_reprs/operators_old" }
 query_ast = { path = "../../../inter_reprs/query_ast" }
 types = { path = "../../../types" }
 untyped_tree = { path = "../../../inter_reprs/untyped_tree" }

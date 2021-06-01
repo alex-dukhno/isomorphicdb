@@ -14,13 +14,14 @@
 
 use super::*;
 use operators::{BiArithmetic, BiOperator, UnArithmetic, UnOperator};
+use query_ast::{BinaryOperator, UnaryOperator};
 
 #[test]
 fn negate_number() {
     let type_inference = TypeInference;
-    let untyped_tree = UntypedTree::UnOp {
-        op: UnOperator::Arithmetic(UnArithmetic::Neg),
-        item: Box::new(untyped_number("9223372036854775808")),
+    let untyped_tree = Expr::UnaryOp {
+        op: UnaryOperator::Minus,
+        expr: Box::new(untyped_number("9223372036854775808")),
     };
 
     assert_eq!(
@@ -37,8 +38,8 @@ fn negate_number() {
 #[test]
 fn addition() {
     let type_inference = TypeInference;
-    let untyped_tree = UntypedTree::BiOp {
-        op: BiOperator::Arithmetic(BiArithmetic::Add),
+    let untyped_tree = Expr::BinaryOp {
+        op: BinaryOperator::Plus,
         left: Box::new(untyped_number("9223372036854775808")),
         right: Box::new(untyped_number("9223372036854775808")),
     };

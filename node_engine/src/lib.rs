@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_repr::scalar::ScalarValue;
+use data_repr::scalar::ScalarValueOld;
 pub use engine::NodeEngine;
 use postgre_sql::query_ast::Query;
 use query_plan::QueryPlan;
 use std::collections::HashMap;
-use types::SqlTypeFamily;
+use types::SqlTypeFamilyOld;
 use untyped_queries::UntypedQuery;
 
 pub mod engine;
@@ -27,7 +27,7 @@ mod worker;
 
 #[derive(Default)]
 pub struct QueryPlanCache {
-    plans: HashMap<String, (Query, Vec<SqlTypeFamily>)>,
+    plans: HashMap<String, (Query, Vec<SqlTypeFamilyOld>)>,
     extended_query: HashMap<String, PreparedStatementState>,
     portal_per_statement: HashMap<String, Vec<String>>,
     all_portals: HashMap<String, Portal>,
@@ -82,15 +82,15 @@ impl QueryPlanCache {
         self.all_portals.get(portal).map(Portal::clone)
     }
 
-    pub fn allocate(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamily>) {
+    pub fn allocate(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamilyOld>) {
         self.plans.insert(name, (query_ast, params));
     }
 
-    pub fn lookup(&self, name: &str) -> Option<&(Query, Vec<SqlTypeFamily>)> {
+    pub fn lookup(&self, name: &str) -> Option<&(Query, Vec<SqlTypeFamilyOld>)> {
         self.plans.get(name)
     }
 
-    pub fn deallocate(&mut self, name: &str) -> Option<(Query, Vec<SqlTypeFamily>)> {
+    pub fn deallocate(&mut self, name: &str) -> Option<(Query, Vec<SqlTypeFamilyOld>)> {
         self.plans.remove(name)
     }
 }
@@ -113,6 +113,6 @@ pub enum PreparedStatementState {
 pub struct Portal {
     pub untyped_query: UntypedQuery,
     pub result_value_formats: Vec<i16>,
-    pub arguments: Vec<ScalarValue>,
-    pub param_types: Vec<SqlTypeFamily>,
+    pub arguments: Vec<ScalarValueOld>,
+    pub param_types: Vec<SqlTypeFamilyOld>,
 }

@@ -13,25 +13,28 @@
 // limitations under the License.
 
 use super::*;
+use operators::{BiArithmetic, BiOperator, UnArithmetic, UnOperator};
 use typed_tree::{TypedItem, TypedTree, TypedValue};
 
+#[cfg(test)]
+mod binary_op;
 #[cfg(test)]
 mod constants;
 #[cfg(test)]
 mod operations;
 
-fn untyped_int(num: i32) -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(num)))
+fn untyped_int(num: i32) -> Expr {
+    Expr::Value(Value::Int(num))
 }
 
-fn untyped_number(num: &str) -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(num.to_owned())))
+fn untyped_number(num: &str) -> Expr {
+    Expr::Value(Value::Number(num.to_owned()))
 }
 
-fn untyped_string(str: &str) -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal(str.to_owned())))
+fn untyped_string(str: &str) -> Expr {
+    Expr::Value(Value::String(str.to_owned()))
 }
 
-fn untyped_null() -> UntypedTree {
-    UntypedTree::Item(UntypedItem::Const(UntypedValue::Null))
+fn untyped_null() -> Expr {
+    Expr::Value(Value::Null)
 }

@@ -13,21 +13,21 @@
 // limitations under the License.
 
 use bigdecimal::BigDecimal;
-use operators::{BiOperator, UnOperator};
+use operators_old::{BiOperator, UnOperator};
 use query_result::QueryExecutionError;
-use scalar::ScalarValue;
+use scalar::ScalarValueOld;
 use std::fmt::{self, Display, Formatter};
-use types::SqlTypeFamily;
+use types::SqlTypeFamilyOld;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedTree {
     Item(TypedItem),
     UnOp {
-        op: UnOperator,
+        op: operators::UnOperator,
         item: Box<TypedTree>,
     },
     BiOp {
-        op: BiOperator,
+        op: operators::BiOperator,
         left: Box<TypedTree>,
         right: Box<TypedTree>,
     },
@@ -36,6 +36,7 @@ pub enum TypedTree {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedItem {
     Const(TypedValue),
+    Param(usize),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -50,7 +51,7 @@ pub enum TypedValue {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedTreeOld {
     BiOp {
-        type_family: SqlTypeFamily,
+        type_family: SqlTypeFamilyOld,
         left: Box<TypedTreeOld>,
         op: BiOperator,
         right: Box<TypedTreeOld>,
@@ -63,7 +64,7 @@ pub enum TypedTreeOld {
 }
 
 impl TypedTreeOld {
-    pub fn type_family(&self) -> Option<SqlTypeFamily> {
+    pub fn type_family(&self) -> Option<SqlTypeFamilyOld> {
         match self {
             TypedTreeOld::Item(item) => item.type_family(),
             TypedTreeOld::BiOp { type_family, .. } => Some(*type_family),
@@ -71,13 +72,13 @@ impl TypedTreeOld {
         }
     }
 
-    pub fn eval(self, param_values: &[ScalarValue], table_row: &[ScalarValue]) -> Result<ScalarValue, QueryExecutionError> {
+    pub fn eval(self, param_values: &[ScalarValueOld], table_row: &[ScalarValueOld]) -> Result<ScalarValueOld, QueryExecutionError> {
         match self {
             TypedTreeOld::Item(TypedItemOld::Const(value)) => Ok(value.eval()),
             TypedTreeOld::Item(TypedItemOld::Column { index, .. }) => Ok(table_row[index].clone()),
             TypedTreeOld::Item(TypedItemOld::Param { index, .. }) => Ok(param_values[index].clone()),
-            TypedTreeOld::Item(TypedItemOld::Null(_)) => Ok(ScalarValue::Null),
-            TypedTreeOld::UnOp { op, item } => op.eval(item.eval(param_values, table_row)?),
+            TypedTreeOld::Item(TypedItemOld::Null(_)) => Ok(ScalarValueOld::Null),
+            TypedTreeOld::UnOp { op, item } => op.eval_old(item.eval(param_values, table_row)?),
             TypedTreeOld::BiOp { left, op, right, .. } => op.eval(left.eval(param_values, table_row)?, right.eval(param_values, table_row)?),
         }
     }
@@ -86,13 +87,20 @@ impl TypedTreeOld {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedItemOld {
     Const(TypedValueOld),
-    Param { index: usize, type_family: Option<SqlTypeFamily> },
-    Null(Option<SqlTypeFamily>),
-    Column { name: String, sql_type: SqlTypeFamily, index: usize },
+    Param {
+        index: usize,
+        type_family: Option<SqlTypeFamilyOld>,
+    },
+    Null(Option<SqlTypeFamilyOld>),
+    Column {
+        name: String,
+        sql_type: SqlTypeFamilyOld,
+        index: usize,
+    },
 }
 
 impl TypedItemOld {
-    fn type_family(&self) -> Option<SqlTypeFamily> {
+    fn type_family(&self) -> Option<SqlTypeFamilyOld> {
         match self {
             TypedItemOld::Const(typed_value) => typed_value.type_family(),
             TypedItemOld::Column { sql_type, .. } => Some(*sql_type),
@@ -104,59 +112,59 @@ impl TypedItemOld {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum TypedValueOld {
-    Num { value: BigDecimal, type_family: SqlTypeFamily },
+    Num { value: BigDecimal, type_family: SqlTypeFamilyOld },
     String(String),
     Bool(bool),
 }
 
 impl TypedValueOld {
-    pub fn type_family(&self) -> Option<SqlTypeFamily> {
+    pub fn type_family(&self) -> Option<SqlTypeFamilyOld> {
         match self {
             TypedValueOld::Num { type_family, .. } => Some(*type_family),
-            TypedValueOld::String(_) => Some(SqlTypeFamily::String),
-            TypedValueOld::Bool(_) => Some(SqlTypeFamily::Bool),
+            TypedValueOld::String(_) => Some(SqlTypeFamilyOld::String),
+            TypedValueOld::Bool(_) => Some(SqlTypeFamilyOld::Bool),
         }
     }
 
-    pub fn eval(self) -> ScalarValue {
+    pub fn eval(self) -> ScalarValueOld {
         match self {
             TypedValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::SmallInt,
-            } => ScalarValue::Num {
+                type_family: SqlTypeFamilyOld::SmallInt,
+            } => ScalarValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::SmallInt,
+                type_family: SqlTypeFamilyOld::SmallInt,
             },
             TypedValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::Integer,
-            } => ScalarValue::Num {
+                type_family: SqlTypeFamilyOld::Integer,
+            } => ScalarValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::Integer,
+                type_family: SqlTypeFamilyOld::Integer,
             },
             TypedValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::Real,
-            } => ScalarValue::Num {
+                type_family: SqlTypeFamilyOld::Real,
+            } => ScalarValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::Real,
+                type_family: SqlTypeFamilyOld::Real,
             },
             TypedValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::Double,
-            } => ScalarValue::Num {
+                type_family: SqlTypeFamilyOld::Double,
+            } => ScalarValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::Double,
+                type_family: SqlTypeFamilyOld::Double,
             },
             TypedValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::BigInt,
-            } => ScalarValue::Num {
+                type_family: SqlTypeFamilyOld::BigInt,
+            } => ScalarValueOld::Num {
                 value,
-                type_family: SqlTypeFamily::BigInt,
+                type_family: SqlTypeFamilyOld::BigInt,
             },
-            TypedValueOld::String(str) => ScalarValue::String(str),
-            TypedValueOld::Bool(boolean) => ScalarValue::Bool(boolean),
+            TypedValueOld::String(str) => ScalarValueOld::String(str),
+            TypedValueOld::Bool(boolean) => ScalarValueOld::Bool(boolean),
             _ => unreachable!(),
         }
     }

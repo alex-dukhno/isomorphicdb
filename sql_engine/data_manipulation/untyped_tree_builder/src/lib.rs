@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use definition::ColumnDef;
-use operators::{BiOperator, UnOperator};
+use operators_old::{BiOperator, UnOperator};
 use query_ast::{BinaryOperator, Expr, Value};
 use types::SqlType;
 use untyped_tree::{UntypedItem, UntypedTree, UntypedValue};

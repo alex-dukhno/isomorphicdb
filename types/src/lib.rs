@@ -19,14 +19,52 @@ use std::{
 };
 use wire_protocol_payload::*;
 
-#[derive(Debug, PartialEq)]
-pub struct IncomparableSqlTypeFamilies {
-    left: SqlTypeFamily,
-    right: SqlTypeFamily,
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum SqlTypeFamily {
+    String(StringFamily),
+    Integer(IntegerFamily),
+    Float(FloatFamily),
+    Numeric,
+    Temporal(TemporalFamily),
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
-pub enum SqlTypeFamily {
+pub enum StringFamily {
+    VarChar,
+    Char,
+    Text,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum IntegerFamily {
+    SmallInt,
+    Int,
+    BigInt,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum FloatFamily {
+    Real,
+    Double,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum TemporalFamily {
+    Date,
+    Time,
+    Timestamp,
+    TimestampTz,
+    Interval,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct IncomparableSqlTypeFamilies {
+    left: SqlTypeFamilyOld,
+    right: SqlTypeFamilyOld,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+pub enum SqlTypeFamilyOld {
     Bool,
     String,
     SmallInt,
@@ -36,26 +74,26 @@ pub enum SqlTypeFamily {
     Double,
 }
 
-impl Display for SqlTypeFamily {
+impl Display for SqlTypeFamilyOld {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SqlTypeFamily::Bool => write!(f, "bool"),
-            SqlTypeFamily::String => write!(f, "string"),
-            SqlTypeFamily::SmallInt => write!(f, "smallint"),
-            SqlTypeFamily::Integer => write!(f, "integer"),
-            SqlTypeFamily::BigInt => write!(f, "bigint"),
-            SqlTypeFamily::Real => write!(f, "real"),
-            SqlTypeFamily::Double => write!(f, "double precision"),
+            SqlTypeFamilyOld::Bool => write!(f, "bool"),
+            SqlTypeFamilyOld::String => write!(f, "string"),
+            SqlTypeFamilyOld::SmallInt => write!(f, "smallint"),
+            SqlTypeFamilyOld::Integer => write!(f, "integer"),
+            SqlTypeFamilyOld::BigInt => write!(f, "bigint"),
+            SqlTypeFamilyOld::Real => write!(f, "real"),
+            SqlTypeFamilyOld::Double => write!(f, "double precision"),
         }
     }
 }
 
-impl SqlTypeFamily {
-    pub fn compare(&self, other: &SqlTypeFamily) -> Result<SqlTypeFamily, IncomparableSqlTypeFamilies> {
+impl SqlTypeFamilyOld {
+    pub fn compare(&self, other: &SqlTypeFamilyOld) -> Result<SqlTypeFamilyOld, IncomparableSqlTypeFamilies> {
         if self.is_float() && other.is_float() {
             if self == other {
                 Ok(*self)
-            } else if self == &SqlTypeFamily::Real && other == &SqlTypeFamily::Double {
+            } else if self == &SqlTypeFamilyOld::Real && other == &SqlTypeFamilyOld::Double {
                 Ok(*other)
             } else {
                 Ok(*self)
@@ -63,7 +101,7 @@ impl SqlTypeFamily {
         } else if self.is_int() && other.is_int() {
             if self == other {
                 Ok(*self)
-            } else if self == &SqlTypeFamily::SmallInt && other == &SqlTypeFamily::Integer || other == &SqlTypeFamily::BigInt {
+            } else if self == &SqlTypeFamilyOld::SmallInt && other == &SqlTypeFamilyOld::Integer || other == &SqlTypeFamilyOld::BigInt {
                 Ok(*other)
             } else {
                 Ok(*self)
@@ -80,11 +118,11 @@ impl SqlTypeFamily {
     }
 
     fn is_float(&self) -> bool {
-        self == &SqlTypeFamily::Real || self == &SqlTypeFamily::Double
+        self == &SqlTypeFamilyOld::Real || self == &SqlTypeFamilyOld::Double
     }
 
     fn is_int(&self) -> bool {
-        self == &SqlTypeFamily::SmallInt || self == &SqlTypeFamily::Integer || self == &SqlTypeFamily::BigInt
+        self == &SqlTypeFamilyOld::SmallInt || self == &SqlTypeFamilyOld::Integer || self == &SqlTypeFamilyOld::BigInt
     }
 }
 
@@ -93,6 +131,7 @@ pub enum SqlType {
     Bool,
     Str { len: u64, kind: Str },
     Num(Num),
+    Unknown,
 }
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
@@ -111,14 +150,15 @@ pub enum Str {
 }
 
 impl SqlType {
-    pub fn family(&self) -> SqlTypeFamily {
+    pub fn family(&self) -> SqlTypeFamilyOld {
         match self {
-            SqlType::Bool => SqlTypeFamily::Bool,
-            SqlType::Str { .. } => SqlTypeFamily::String,
-            SqlType::Num(Num::SmallInt) => SqlTypeFamily::SmallInt,
-            SqlType::Num(Num::Integer) => SqlTypeFamily::Integer,
-            SqlType::Num(Num::BigInt) => SqlTypeFamily::BigInt,
-            SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => SqlTypeFamily::Real,
+            SqlType::Bool => SqlTypeFamilyOld::Bool,
+            SqlType::Str { .. } => SqlTypeFamilyOld::String,
+            SqlType::Num(Num::SmallInt) => SqlTypeFamilyOld::SmallInt,
+            SqlType::Num(Num::Integer) => SqlTypeFamilyOld::Integer,
+            SqlType::Num(Num::BigInt) => SqlTypeFamilyOld::BigInt,
+            SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => SqlTypeFamilyOld::Real,
+            SqlType::Unknown => unimplemented!(),
         }
     }
 
@@ -156,6 +196,7 @@ impl SqlType {
 
     pub fn type_id(&self) -> u64 {
         match self {
+            SqlType::Unknown => unimplemented!(),
             SqlType::Bool => 0,
             SqlType::Str { kind: Str::Const, .. } => 1,
             SqlType::Str { kind: Str::Var, .. } => 2,
@@ -215,18 +256,19 @@ impl Display for SqlType {
             SqlType::Num(Num::BigInt) => write!(f, "bigint"),
             SqlType::Num(Num::Real) => write!(f, "real"),
             SqlType::Num(Num::Double) => write!(f, "double precision"),
+            SqlType::Unknown => write!(f, "unknown"),
         }
     }
 }
 
-impl From<&u32> for SqlTypeFamily {
-    fn from(pg_type: &u32) -> SqlTypeFamily {
+impl From<&u32> for SqlTypeFamilyOld {
+    fn from(pg_type: &u32) -> SqlTypeFamilyOld {
         match pg_type {
-            &SMALLINT => SqlTypeFamily::SmallInt,
-            &INT => SqlTypeFamily::Integer,
-            &BIGINT => SqlTypeFamily::BigInt,
-            &CHAR | &VARCHAR => SqlTypeFamily::String,
-            &BOOL => SqlTypeFamily::Bool,
+            &SMALLINT => SqlTypeFamilyOld::SmallInt,
+            &INT => SqlTypeFamilyOld::Integer,
+            &BIGINT => SqlTypeFamilyOld::BigInt,
+            &CHAR | &VARCHAR => SqlTypeFamilyOld::String,
+            &BOOL => SqlTypeFamilyOld::Bool,
             _ => unimplemented!(),
         }
     }
@@ -242,6 +284,7 @@ impl From<&SqlType> for u32 {
             SqlType::Num(Num::Integer) => INT,
             SqlType::Num(Num::BigInt) => BIGINT,
             SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => unreachable!(),
+            SqlType::Unknown => unimplemented!(),
         }
     }
 }
@@ -263,7 +306,7 @@ impl FromStr for Bool {
 }
 
 #[derive(PartialEq, Debug)]
-pub struct ParseBoolError(String);
+pub struct ParseBoolError(pub String);
 
 impl Display for ParseBoolError {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

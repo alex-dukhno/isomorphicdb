@@ -6,7 +6,7 @@ edition = "2018"
 publish = false
 
 [dependencies]
-operators = { path = "../../../inter_reprs/operators" }
+operators_old = { path = "../../../inter_reprs/operators_old" }
 typed_tree = { path = "../../../inter_reprs/typed_tree" }
 checked_tree = { path = "../../../inter_reprs/checked_tree" }
 exec_tree = { path = "../../../inter_reprs/exec_tree" }

@@ -6,10 +6,12 @@ edition = "2018"
 publish = false
 
 [dependencies]
+operators_old = { path = "../../../inter_reprs/operators_old" }
 operators = { path = "../../../inter_reprs/operators" }
 typed_tree = { path = "../../../inter_reprs/typed_tree" }
 types = { path = "../../../types" }
 untyped_tree = { path = "../../../inter_reprs/untyped_tree" }
+query_ast = { path = "../../../inter_reprs/query_ast" }
 query_response = { path = "../../../postgre_sql/query_response" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

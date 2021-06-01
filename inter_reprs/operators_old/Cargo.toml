@@ -1,0 +1,19 @@
+[package]
+name = "operators_old"
+version = "0.1.0"
+authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+query_result = { path = "../../sql_engine/data_manipulation/query_result" }
+types = { path = "../../types" }
+query_ast = { path = "../query_ast" }
+scalar = { path = "../../data_repr/scalar" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }
+regex = "1.4.3"
+log = "0.4.14"
+
+[dev-dependencies]
+rstest = "0.10.0"

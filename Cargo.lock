@@ -168,7 +168,20 @@ name = "checked_tree"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
- "operators",
+ "operators_old",
+]
+
+[[package]]
+name = "chrono"
+version = "0.4.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "670ad68c9088c2a963aaa298cb369688cf3f9465ce5e2d4ca10e6e0098a1ce73"
+dependencies = [
+ "libc",
+ "num-integer",
+ "num-traits",
+ "time",
+ "winapi",
 ]
 
 [[package]]
@@ -264,7 +277,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "definition",
- "operators",
+ "operators_old",
  "query_ast",
  "types",
  "untyped_tree",
@@ -334,6 +347,10 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "operators",
+ "operators_old",
+ "query_result",
+ "scalar",
+ "types",
 ]
 
 [[package]]
@@ -770,6 +787,18 @@ dependencies = [
  "bigdecimal",
  "log",
  "query_ast",
+ "regex",
+ "rstest",
+ "types",
+]
+
+[[package]]
+name = "operators_old"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "log",
+ "query_ast",
  "query_result",
  "regex",
  "rstest",
@@ -987,7 +1016,7 @@ dependencies = [
  "data_manipulation_untyped_tree_builder",
  "definition",
  "log",
- "operators",
+ "operators_old",
  "query_ast",
  "query_response",
  "simple_logger",
@@ -1044,9 +1073,14 @@ dependencies = [
 name = "query_processing"
 version = "0.1.0"
 dependencies = [
+ "checked_tree",
+ "operators",
+ "query_ast",
  "query_processing_type_check",
  "query_processing_type_coercion",
  "query_processing_type_inference",
+ "typed_tree",
+ "types",
 ]
 
 [[package]]
@@ -1055,7 +1089,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "checked_tree",
- "operators",
+ "operators_old",
  "query_response",
  "typed_tree",
  "types",
@@ -1068,7 +1102,7 @@ dependencies = [
  "bigdecimal",
  "checked_tree",
  "exec_tree",
- "operators",
+ "operators_old",
  "query_response",
  "typed_tree",
  "types",
@@ -1081,6 +1115,8 @@ dependencies = [
  "bigdecimal",
  "log",
  "operators",
+ "operators_old",
+ "query_ast",
  "query_response",
  "typed_tree",
  "types",
@@ -1221,6 +1257,9 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "binary",
+ "chrono",
+ "operators",
+ "ordered-float",
  "query_ast",
  "types",
  "wire_protocol_payload",
@@ -1438,6 +1477,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "time"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "tinyvec"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1527,6 +1576,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "operators",
+ "operators_old",
  "ordered-float",
  "query_result",
  "rstest",
@@ -1599,7 +1649,7 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "log",
- "operators",
+ "operators_old",
  "types",
 ]
 

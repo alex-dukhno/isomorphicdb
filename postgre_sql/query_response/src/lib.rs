@@ -281,10 +281,14 @@ pub(crate) enum QueryErrorKind {
         column_name: String,
         row_index: usize, // TODO make it optional - does not make sense for update query
     },
-    UndefinedFunction {
+    UndefinedBinaryFunction {
         operator: String,
         left_type: String,
         right_type: String,
+    },
+    UndefinedUnaryFunction {
+        operator: String,
+        sql_type: String,
     },
     AmbiguousColumnName {
         column: String,
@@ -307,40 +311,43 @@ pub(crate) enum QueryErrorKind {
     InvalidArgumentForPowerFunction,
     InvalidTextRepresentation2(String, String),
     CannotCoerce(String, String),
+    AmbiguousFunction(String, String),
 }
 
 impl QueryErrorKind {
     fn code(&self) -> &'static str {
         match self {
-            Self::SchemaAlreadyExists(_) => "42P06",
-            Self::TableAlreadyExists(_) => "42P07",
-            Self::SchemaDoesNotExist(_) => "3F000",
-            Self::SchemaHasDependentObjects(_) => "2BP01",
-            Self::TableDoesNotExist(_) => "42P01",
-            Self::ColumnDoesNotExist(_) => "42703",
-            Self::IndeterminateParameterDataType { .. } => "42P18",
-            Self::InvalidParameterValue(_) => "22023",
-            Self::PreparedStatementDoesNotExist(_) => "26000",
-            Self::PortalDoesNotExist(_) => "26000",
-            Self::TypeDoesNotExist(_) => "42704",
-            Self::ProtocolViolation(_) => "08P01",
-            Self::FeatureNotSupported(_) => "0A000",
-            Self::TooManyInsertExpressions => "42601",
-            Self::NumericTypeOutOfRange { .. } => "22003",
-            Self::NumericTypeOutOfRange2 { .. } => "22003",
-            Self::MostSpecificTypeMismatch { .. } => "2200G",
-            Self::MostSpecificTypeMismatch2 { .. } => "2200G",
-            Self::StringTypeLengthMismatch { .. } => "22026",
-            Self::UndefinedFunction { .. } => "42883",
-            Self::AmbiguousColumnName { .. } => "42702",
-            Self::UndefinedColumn { .. } => "42883",
-            Self::SyntaxError(_) => "42601",
-            Self::InvalidTextRepresentation { .. } => "22P02",
-            Self::InvalidTextRepresentation2(_, _) => "22P02",
-            Self::DuplicateColumn(_) => "42701",
-            Self::DatatypeMismatch { .. } => "42804",
-            Self::InvalidArgumentForPowerFunction => "2201F",
-            Self::CannotCoerce(_, _) => "42846",
+            QueryErrorKind::SchemaAlreadyExists(_) => "42P06",
+            QueryErrorKind::TableAlreadyExists(_) => "42P07",
+            QueryErrorKind::SchemaDoesNotExist(_) => "3F000",
+            QueryErrorKind::SchemaHasDependentObjects(_) => "2BP01",
+            QueryErrorKind::TableDoesNotExist(_) => "42P01",
+            QueryErrorKind::ColumnDoesNotExist(_) => "42703",
+            QueryErrorKind::IndeterminateParameterDataType { .. } => "42P18",
+            QueryErrorKind::InvalidParameterValue(_) => "22023",
+            QueryErrorKind::PreparedStatementDoesNotExist(_) => "26000",
+            QueryErrorKind::PortalDoesNotExist(_) => "26000",
+            QueryErrorKind::TypeDoesNotExist(_) => "42704",
+            QueryErrorKind::ProtocolViolation(_) => "08P01",
+            QueryErrorKind::FeatureNotSupported(_) => "0A000",
+            QueryErrorKind::TooManyInsertExpressions => "42601",
+            QueryErrorKind::NumericTypeOutOfRange { .. } => "22003",
+            QueryErrorKind::NumericTypeOutOfRange2 { .. } => "22003",
+            QueryErrorKind::MostSpecificTypeMismatch { .. } => "2200G",
+            QueryErrorKind::MostSpecificTypeMismatch2 { .. } => "2200G",
+            QueryErrorKind::StringTypeLengthMismatch { .. } => "22026",
+            QueryErrorKind::UndefinedBinaryFunction { .. } => "42883",
+            QueryErrorKind::UndefinedUnaryFunction { .. } => "42883",
+            QueryErrorKind::AmbiguousColumnName { .. } => "42702",
+            QueryErrorKind::UndefinedColumn { .. } => "42883",
+            QueryErrorKind::SyntaxError(_) => "42601",
+            QueryErrorKind::InvalidTextRepresentation { .. } => "22P02",
+            QueryErrorKind::InvalidTextRepresentation2(_, _) => "22P02",
+            QueryErrorKind::DuplicateColumn(_) => "42701",
+            QueryErrorKind::DatatypeMismatch { .. } => "42804",
+            QueryErrorKind::InvalidArgumentForPowerFunction => "2201F",
+            QueryErrorKind::CannotCoerce(_, _) => "42846",
+            QueryErrorKind::AmbiguousFunction(_, _) => "42725",
         }
     }
 }
@@ -348,39 +355,39 @@ impl QueryErrorKind {
 impl Display for QueryErrorKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::SchemaAlreadyExists(schema_name) => write!(f, "schema \"{}\" already exists", schema_name),
-            Self::TableAlreadyExists(table_name) => write!(f, "table \"{}\" already exists", table_name),
-            Self::SchemaDoesNotExist(schema_name) => write!(f, "schema \"{}\" does not exist", schema_name),
-            Self::SchemaHasDependentObjects(schema_name) => {
+            QueryErrorKind::SchemaAlreadyExists(schema_name) => write!(f, "schema \"{}\" already exists", schema_name),
+            QueryErrorKind::TableAlreadyExists(table_name) => write!(f, "table \"{}\" already exists", table_name),
+            QueryErrorKind::SchemaDoesNotExist(schema_name) => write!(f, "schema \"{}\" does not exist", schema_name),
+            QueryErrorKind::SchemaHasDependentObjects(schema_name) => {
                 write!(f, "schema \"{}\" has dependent objects", schema_name)
             }
-            Self::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
-            Self::ColumnDoesNotExist(column) => write!(f, "column {} does not exist", column),
-            Self::IndeterminateParameterDataType { param_index } => {
+            QueryErrorKind::TableDoesNotExist(table_name) => write!(f, "table \"{}\" does not exist", table_name),
+            QueryErrorKind::ColumnDoesNotExist(column) => write!(f, "column {} does not exist", column),
+            QueryErrorKind::IndeterminateParameterDataType { param_index } => {
                 write!(f, "could not determine data type of parameter ${}", param_index + 1)
             }
-            Self::InvalidParameterValue(message) => write!(f, "{}", message),
-            Self::PreparedStatementDoesNotExist(statement_name) => {
+            QueryErrorKind::InvalidParameterValue(message) => write!(f, "{}", message),
+            QueryErrorKind::PreparedStatementDoesNotExist(statement_name) => {
                 write!(f, "prepared statement {} does not exist", statement_name)
             }
-            Self::PortalDoesNotExist(portal_name) => write!(f, "portal {} does not exist", portal_name),
-            Self::TypeDoesNotExist(type_name) => write!(f, "type \"{}\" does not exist", type_name),
-            Self::ProtocolViolation(message) => write!(f, "{}", message),
-            Self::FeatureNotSupported(raw_sql_query) => {
+            QueryErrorKind::PortalDoesNotExist(portal_name) => write!(f, "portal {} does not exist", portal_name),
+            QueryErrorKind::TypeDoesNotExist(type_name) => write!(f, "type \"{}\" does not exist", type_name),
+            QueryErrorKind::ProtocolViolation(message) => write!(f, "{}", message),
+            QueryErrorKind::FeatureNotSupported(raw_sql_query) => {
                 write!(f, "Currently, Query '{}' can't be executed", raw_sql_query)
             }
-            Self::TooManyInsertExpressions => write!(f, "INSERT has more expressions than target columns"),
-            Self::NumericTypeOutOfRange {
+            QueryErrorKind::TooManyInsertExpressions => write!(f, "INSERT has more expressions than target columns"),
+            QueryErrorKind::NumericTypeOutOfRange {
                 pg_type,
                 column_name,
                 row_index,
             } => write!(f, "{} is out of range for column '{}' at row {}", pg_type, column_name, row_index),
-            Self::NumericTypeOutOfRange2 {
+            QueryErrorKind::NumericTypeOutOfRange2 {
                 pg_type,
                 column_name,
                 row_index,
             } => write!(f, "{} is out of range for column '{}' at row {}", pg_type, column_name, row_index),
-            Self::MostSpecificTypeMismatch {
+            QueryErrorKind::MostSpecificTypeMismatch {
                 pg_type,
                 value,
                 column_name,
@@ -390,7 +397,7 @@ impl Display for QueryErrorKind {
                 "invalid input syntax for type {} for column '{}' at row {}: \"{}\"",
                 pg_type, column_name, row_index, value
             ),
-            Self::MostSpecificTypeMismatch2 {
+            QueryErrorKind::MostSpecificTypeMismatch2 {
                 pg_type,
                 value,
                 column_name,
@@ -400,7 +407,7 @@ impl Display for QueryErrorKind {
                 "invalid input syntax for type {} for column '{}' at row {}: \"{}\"",
                 pg_type, column_name, row_index, value
             ),
-            Self::StringTypeLengthMismatch {
+            QueryErrorKind::StringTypeLengthMismatch {
                 pg_type,
                 len,
                 column_name,
@@ -410,28 +417,32 @@ impl Display for QueryErrorKind {
                 "value too long for type {}({}) for column '{}' at row {}",
                 pg_type, len, column_name, row_index
             ),
-            Self::UndefinedFunction {
+            QueryErrorKind::UndefinedBinaryFunction {
                 operator,
                 left_type,
                 right_type,
             } => write!(f, "operator does not exist: ({} {} {})", left_type, operator, right_type),
-            Self::AmbiguousColumnName { column } => write!(f, "use of ambiguous column name in context: '{}'", column),
-            Self::UndefinedColumn { column } => write!(f, "use of undefined column: '{}'", column),
-            Self::SyntaxError(expression) => write!(f, "syntax error: {}", expression),
-            Self::InvalidTextRepresentation { pg_type, value } => {
+            QueryErrorKind::UndefinedUnaryFunction { operator, sql_type } => {
+                write!(f, "operator does not exist: {} {}", operator, sql_type)
+            }
+            QueryErrorKind::AmbiguousColumnName { column } => write!(f, "use of ambiguous column name in context: '{}'", column),
+            QueryErrorKind::UndefinedColumn { column } => write!(f, "use of undefined column: '{}'", column),
+            QueryErrorKind::SyntaxError(expression) => write!(f, "syntax error: {}", expression),
+            QueryErrorKind::InvalidTextRepresentation { pg_type, value } => {
                 write!(f, "invalid input syntax for type {}: \"{}\"", pg_type, value)
             }
-            Self::InvalidTextRepresentation2(sql_type, value) => {
+            QueryErrorKind::InvalidTextRepresentation2(sql_type, value) => {
                 write!(f, "invalid input syntax for type {}: \"{}\"", sql_type, value)
             }
-            Self::DuplicateColumn(name) => write!(f, "column \"{}\" specified more than once", name),
-            Self::DatatypeMismatch {
+            QueryErrorKind::DuplicateColumn(name) => write!(f, "column \"{}\" specified more than once", name),
+            QueryErrorKind::DatatypeMismatch {
                 op,
                 target_type,
                 actual_type,
             } => write!(f, "argument of {} must be type {}, not type {}", op, target_type, actual_type),
-            Self::InvalidArgumentForPowerFunction => write!(f, "cannot take square root of a negative number"),
-            Self::CannotCoerce(from_type, to_type) => write!(f, "cannot cast type {} to {}", from_type, to_type),
+            QueryErrorKind::InvalidArgumentForPowerFunction => write!(f, "cannot take square root of a negative number"),
+            QueryErrorKind::CannotCoerce(from_type, to_type) => write!(f, "cannot cast type {} to {}", from_type, to_type),
+            QueryErrorKind::AmbiguousFunction(operator, sql_type) => write!(f, " operator is not unique: {} {}", operator, sql_type),
         }
     }
 }
@@ -607,13 +618,24 @@ impl QueryError {
     }
 
     /// operator or function is not found for operands
-    pub fn undefined_function<O: ToString, S: ToString>(operator: O, left_type: S, right_type: S) -> QueryError {
+    pub fn undefined_binary_function<O: ToString, S: ToString>(operator: O, left_type: S, right_type: S) -> QueryError {
         QueryError {
             severity: Severity::Error,
-            kind: QueryErrorKind::UndefinedFunction {
+            kind: QueryErrorKind::UndefinedBinaryFunction {
                 operator: operator.to_string(),
                 left_type: left_type.to_string(),
                 right_type: right_type.to_string(),
+            },
+        }
+    }
+
+    /// operator or function is not found for operands
+    pub fn undefined_unary_function<O: ToString, S: ToString>(operator: O, sql_type: S) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::UndefinedUnaryFunction {
+                operator: operator.to_string(),
+                sql_type: sql_type.to_string(),
             },
         }
     }
@@ -746,6 +768,13 @@ impl QueryError {
         QueryError {
             severity: Severity::Error,
             kind: QueryErrorKind::CannotCoerce(from_type.to_string(), to_type.to_string()),
+        }
+    }
+
+    pub fn ambiguous_function<Op: ToString, Ty: ToString>(operator: Op, sql_type: Ty) -> QueryError {
+        QueryError {
+            severity: Severity::Error,
+            kind: QueryErrorKind::AmbiguousFunction(operator.to_string(), sql_type.to_string()),
         }
     }
 }

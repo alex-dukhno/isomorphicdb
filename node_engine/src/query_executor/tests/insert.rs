@@ -733,7 +733,7 @@ mod operators {
                 &txn,
                 "insert into schema_name.table_name values (1 || 2);",
                 vec![
-                    QueryError::undefined_function("||".to_owned(), "integer".to_owned(), "integer".to_owned()).into(),
+                    QueryError::undefined_binary_function("||".to_owned(), "integer".to_owned(), "integer".to_owned()).into(),
                     OutboundMessage::ReadyForQuery,
                 ],
             );

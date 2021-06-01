@@ -16,13 +16,19 @@ use super::*;
 
 #[test]
 fn same_types() {
-    assert_eq!(SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::SmallInt), Ok(SqlTypeFamily::SmallInt));
-    assert_eq!(SqlTypeFamily::Integer.compare(&SqlTypeFamily::Integer), Ok(SqlTypeFamily::Integer));
-    assert_eq!(SqlTypeFamily::BigInt.compare(&SqlTypeFamily::BigInt), Ok(SqlTypeFamily::BigInt));
-    assert_eq!(SqlTypeFamily::Real.compare(&SqlTypeFamily::Real), Ok(SqlTypeFamily::Real));
-    assert_eq!(SqlTypeFamily::Double.compare(&SqlTypeFamily::Double), Ok(SqlTypeFamily::Double));
-    assert_eq!(SqlTypeFamily::String.compare(&SqlTypeFamily::String), Ok(SqlTypeFamily::String));
-    assert_eq!(SqlTypeFamily::Bool.compare(&SqlTypeFamily::Bool), Ok(SqlTypeFamily::Bool));
+    assert_eq!(
+        SqlTypeFamilyOld::SmallInt.compare(&SqlTypeFamilyOld::SmallInt),
+        Ok(SqlTypeFamilyOld::SmallInt)
+    );
+    assert_eq!(
+        SqlTypeFamilyOld::Integer.compare(&SqlTypeFamilyOld::Integer),
+        Ok(SqlTypeFamilyOld::Integer)
+    );
+    assert_eq!(SqlTypeFamilyOld::BigInt.compare(&SqlTypeFamilyOld::BigInt), Ok(SqlTypeFamilyOld::BigInt));
+    assert_eq!(SqlTypeFamilyOld::Real.compare(&SqlTypeFamilyOld::Real), Ok(SqlTypeFamilyOld::Real));
+    assert_eq!(SqlTypeFamilyOld::Double.compare(&SqlTypeFamilyOld::Double), Ok(SqlTypeFamilyOld::Double));
+    assert_eq!(SqlTypeFamilyOld::String.compare(&SqlTypeFamilyOld::String), Ok(SqlTypeFamilyOld::String));
+    assert_eq!(SqlTypeFamilyOld::Bool.compare(&SqlTypeFamilyOld::Bool), Ok(SqlTypeFamilyOld::Bool));
 }
 
 #[cfg(test)]
@@ -31,40 +37,58 @@ mod with_higher_in_same_type_group {
 
     #[test]
     fn integers() {
-        assert_eq!(SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::Integer), Ok(SqlTypeFamily::Integer));
-        assert_eq!(SqlTypeFamily::Integer.compare(&SqlTypeFamily::SmallInt), Ok(SqlTypeFamily::Integer));
+        assert_eq!(
+            SqlTypeFamilyOld::SmallInt.compare(&SqlTypeFamilyOld::Integer),
+            Ok(SqlTypeFamilyOld::Integer)
+        );
+        assert_eq!(
+            SqlTypeFamilyOld::Integer.compare(&SqlTypeFamilyOld::SmallInt),
+            Ok(SqlTypeFamilyOld::Integer)
+        );
 
-        assert_eq!(SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::BigInt), Ok(SqlTypeFamily::BigInt));
-        assert_eq!(SqlTypeFamily::BigInt.compare(&SqlTypeFamily::SmallInt), Ok(SqlTypeFamily::BigInt));
+        assert_eq!(
+            SqlTypeFamilyOld::SmallInt.compare(&SqlTypeFamilyOld::BigInt),
+            Ok(SqlTypeFamilyOld::BigInt)
+        );
+        assert_eq!(
+            SqlTypeFamilyOld::BigInt.compare(&SqlTypeFamilyOld::SmallInt),
+            Ok(SqlTypeFamilyOld::BigInt)
+        );
 
-        assert_eq!(SqlTypeFamily::Integer.compare(&SqlTypeFamily::BigInt), Ok(SqlTypeFamily::BigInt));
-        assert_eq!(SqlTypeFamily::BigInt.compare(&SqlTypeFamily::Integer), Ok(SqlTypeFamily::BigInt));
+        assert_eq!(SqlTypeFamilyOld::Integer.compare(&SqlTypeFamilyOld::BigInt), Ok(SqlTypeFamilyOld::BigInt));
+        assert_eq!(SqlTypeFamilyOld::BigInt.compare(&SqlTypeFamilyOld::Integer), Ok(SqlTypeFamilyOld::BigInt));
     }
 
     #[test]
     fn floats() {
-        assert_eq!(SqlTypeFamily::Real.compare(&SqlTypeFamily::Double), Ok(SqlTypeFamily::Double));
-        assert_eq!(SqlTypeFamily::Double.compare(&SqlTypeFamily::Real), Ok(SqlTypeFamily::Double));
+        assert_eq!(SqlTypeFamilyOld::Real.compare(&SqlTypeFamilyOld::Double), Ok(SqlTypeFamilyOld::Double));
+        assert_eq!(SqlTypeFamilyOld::Double.compare(&SqlTypeFamilyOld::Real), Ok(SqlTypeFamilyOld::Double));
     }
 
     #[test]
     fn float_and_integer() {
-        assert_eq!(SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::Real), Ok(SqlTypeFamily::Real));
-        assert_eq!(SqlTypeFamily::Real.compare(&SqlTypeFamily::SmallInt), Ok(SqlTypeFamily::Real));
+        assert_eq!(SqlTypeFamilyOld::SmallInt.compare(&SqlTypeFamilyOld::Real), Ok(SqlTypeFamilyOld::Real));
+        assert_eq!(SqlTypeFamilyOld::Real.compare(&SqlTypeFamilyOld::SmallInt), Ok(SqlTypeFamilyOld::Real));
 
-        assert_eq!(SqlTypeFamily::SmallInt.compare(&SqlTypeFamily::Double), Ok(SqlTypeFamily::Double));
-        assert_eq!(SqlTypeFamily::Double.compare(&SqlTypeFamily::SmallInt), Ok(SqlTypeFamily::Double));
+        assert_eq!(
+            SqlTypeFamilyOld::SmallInt.compare(&SqlTypeFamilyOld::Double),
+            Ok(SqlTypeFamilyOld::Double)
+        );
+        assert_eq!(
+            SqlTypeFamilyOld::Double.compare(&SqlTypeFamilyOld::SmallInt),
+            Ok(SqlTypeFamilyOld::Double)
+        );
 
-        assert_eq!(SqlTypeFamily::Integer.compare(&SqlTypeFamily::Real), Ok(SqlTypeFamily::Real));
-        assert_eq!(SqlTypeFamily::Real.compare(&SqlTypeFamily::Integer), Ok(SqlTypeFamily::Real));
+        assert_eq!(SqlTypeFamilyOld::Integer.compare(&SqlTypeFamilyOld::Real), Ok(SqlTypeFamilyOld::Real));
+        assert_eq!(SqlTypeFamilyOld::Real.compare(&SqlTypeFamilyOld::Integer), Ok(SqlTypeFamilyOld::Real));
 
-        assert_eq!(SqlTypeFamily::Integer.compare(&SqlTypeFamily::Double), Ok(SqlTypeFamily::Double));
-        assert_eq!(SqlTypeFamily::Double.compare(&SqlTypeFamily::Integer), Ok(SqlTypeFamily::Double));
+        assert_eq!(SqlTypeFamilyOld::Integer.compare(&SqlTypeFamilyOld::Double), Ok(SqlTypeFamilyOld::Double));
+        assert_eq!(SqlTypeFamilyOld::Double.compare(&SqlTypeFamilyOld::Integer), Ok(SqlTypeFamilyOld::Double));
 
-        assert_eq!(SqlTypeFamily::BigInt.compare(&SqlTypeFamily::Real), Ok(SqlTypeFamily::Real));
-        assert_eq!(SqlTypeFamily::Real.compare(&SqlTypeFamily::BigInt), Ok(SqlTypeFamily::Real));
+        assert_eq!(SqlTypeFamilyOld::BigInt.compare(&SqlTypeFamilyOld::Real), Ok(SqlTypeFamilyOld::Real));
+        assert_eq!(SqlTypeFamilyOld::Real.compare(&SqlTypeFamilyOld::BigInt), Ok(SqlTypeFamilyOld::Real));
 
-        assert_eq!(SqlTypeFamily::BigInt.compare(&SqlTypeFamily::Double), Ok(SqlTypeFamily::Double));
-        assert_eq!(SqlTypeFamily::Double.compare(&SqlTypeFamily::BigInt), Ok(SqlTypeFamily::Double));
+        assert_eq!(SqlTypeFamilyOld::BigInt.compare(&SqlTypeFamilyOld::Double), Ok(SqlTypeFamilyOld::Double));
+        assert_eq!(SqlTypeFamilyOld::Double.compare(&SqlTypeFamilyOld::BigInt), Ok(SqlTypeFamilyOld::Double));
     }
 }
