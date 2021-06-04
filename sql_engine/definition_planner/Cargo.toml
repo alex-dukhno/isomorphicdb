@@ -12,4 +12,4 @@ definition = { path = "../../definition" }
 query_ast = { path = "../../postgre_sql/query_ast" }
 query_response = { path = "../../postgre_sql/query_response" }
 storage = { path = "../../storage" }
-types = { path = "../../types" }
+types_old = { path = "../../types_old" }

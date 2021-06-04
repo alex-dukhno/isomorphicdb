@@ -87,11 +87,12 @@ On Ubuntu the following command should be sufficient:
 sudo apt install llvm
 ```
 
-On MacOS with `zsh`
+On macOS with `zsh`
 ```shell
+brew install wget
 brew install llvm
 echo 'export PATH="/usr/local/opt/llvm/bin:$PATH"' ~/.zshrc
-source ~/.zshrc 
+source ~/.zshrc
 ```
 
 ### Setting up integration suite for local testing

@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_typed_tree::TypedTree;
+use data_manipulation_typed_tree_old::TypedTreeOld;
 
 pub struct TypeCoercion;
 
 impl TypeCoercion {
-    pub fn coerce(&self, tree: TypedTree) -> TypedTree {
+    pub fn coerce(&self, tree: TypedTreeOld) -> TypedTreeOld {
         tree
     }
 }

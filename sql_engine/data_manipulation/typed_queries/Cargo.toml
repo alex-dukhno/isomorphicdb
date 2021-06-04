@@ -6,5 +6,5 @@ edition = "2018"
 publish = false
 
 [dependencies]
-data_manipulation_typed_tree = { path = "../typed_tree" }
+data_manipulation_typed_tree_old = { path = "../typed_tree_old" }
 definition = { path = "../../../definition" }

@@ -695,7 +695,7 @@ impl QueryError {
         }
     }
 
-    /// length of string types do not match constructor
+    /// length of string types_old do not match constructor
     pub fn string_length_mismatch<S: ToString>(pg_type: u32, len: u64, column_name: S, row_index: usize) -> QueryError {
         QueryError {
             severity: Severity::Error,

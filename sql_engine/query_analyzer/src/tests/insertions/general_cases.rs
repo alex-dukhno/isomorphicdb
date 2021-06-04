@@ -53,7 +53,7 @@ fn with_column_names() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::small_int())]))
         .unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
@@ -62,7 +62,7 @@ fn with_column_names() {
         analyzer.analyze(inner_insert(SCHEMA, TABLE, vec![vec![small_int(100)]], vec!["col"])),
         Ok(UntypedQuery::Insert(UntypedInsertQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            values: vec![vec![Some(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(100))))]],
+            values: vec![vec![Some(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Int(100))))]],
         }))
     );
 }
@@ -74,7 +74,7 @@ fn column_not_found() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::small_int())]))
         .unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);

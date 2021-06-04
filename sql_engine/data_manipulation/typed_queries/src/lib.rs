@@ -12,33 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_typed_tree::TypedTree;
+use data_manipulation_typed_tree_old::TypedTreeOld;
 use definition::FullTableName;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedInsertQuery {
     pub full_table_name: FullTableName,
-    pub values: Vec<Vec<Option<TypedTree>>>,
+    pub values: Vec<Vec<Option<TypedTreeOld>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedDeleteQuery {
     pub full_table_name: FullTableName,
-    pub filter: Option<TypedTree>,
+    pub filter: Option<TypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedUpdateQuery {
     pub full_table_name: FullTableName,
-    pub assignments: Vec<Option<TypedTree>>,
-    pub filter: Option<TypedTree>,
+    pub assignments: Vec<Option<TypedTreeOld>>,
+    pub filter: Option<TypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct TypedSelectQuery {
     pub full_table_name: FullTableName,
-    pub projection_items: Vec<TypedTree>,
-    pub filter: Option<TypedTree>,
+    pub projection_items: Vec<TypedTreeOld>,
+    pub filter: Option<TypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

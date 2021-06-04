@@ -28,7 +28,7 @@ use postgre_sql::{
     },
 };
 use storage::Database;
-use types::SqlTypeFamily;
+use types_old::SqlTypeFamilyOld;
 
 pub struct Worker;
 
@@ -188,7 +188,7 @@ impl Worker {
                                 let mut arguments: Vec<ScalarValue> = vec![];
                                 debug_assert!(
                                     query_params.len() == param_types.len() && query_params.len() == query_param_formats.len(),
-                                    "encoded parameter values, their types and formats have to have same length"
+                                    "encoded parameter values, their types_old and formats have to have same length"
                                 );
                                 for i in 0..query_params.len() {
                                     let raw_param = &query_params[i];
@@ -209,7 +209,7 @@ impl Worker {
                                     untyped_query,
                                     result_value_formats: result_value_formats.clone(),
                                     arguments,
-                                    param_types: param_types.iter().map(From::from).collect::<Vec<SqlTypeFamily>>(),
+                                    param_types: param_types.iter().map(From::from).collect::<Vec<SqlTypeFamilyOld>>(),
                                 };
                                 query_plan_cache.bind_portal(statement_name, portal_name, portal);
                                 connection.send(OutboundMessage::BindComplete).unwrap();

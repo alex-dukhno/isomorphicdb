@@ -18,7 +18,7 @@ use data_manipulation_operators::{BiArithmetic, BiLogical, BiOperator, Bitwise, 
 use definition::SchemaName;
 use query_ast::{Assignment, BinaryOperator, DataType, Expr, Value};
 use storage::Database;
-use types::SqlType;
+use types_old::SqlTypeOld;
 
 #[cfg(test)]
 mod delete;
@@ -58,7 +58,7 @@ fn create_schema_ops(schema_name: &str) -> SchemaChange {
     })
 }
 
-fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlType)>) -> SchemaChange {
+fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlTypeOld)>) -> SchemaChange {
     SchemaChange::CreateTable(CreateTableQuery {
         full_table_name: FullTableName::from((&schema_name, &table_name)),
         column_defs: columns

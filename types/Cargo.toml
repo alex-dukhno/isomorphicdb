@@ -1,13 +1,9 @@
 [package]
 name = "types"
 version = "0.1.0"
-authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
+authors = ["alex-dukhno"]
 edition = "2018"
-publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-query_ast = { path = "../postgre_sql/query_ast" }
-wire_protocol_payload = { path = "../postgre_sql/wire_protocol/payload" }
-
-[dev-dependencies]
-rstest = "0.10.0"

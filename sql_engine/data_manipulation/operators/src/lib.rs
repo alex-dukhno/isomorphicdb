@@ -21,7 +21,7 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
     str::FromStr,
 };
-use types::{Bool, SqlType, SqlTypeFamily};
+use types_old::{Bool, SqlTypeFamilyOld, SqlTypeOld};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum BiArithmetic {
@@ -227,7 +227,7 @@ impl BiOperator {
             BiOperator::Arithmetic(op) => match (left, right) {
                 (ScalarValue::Num { value: left_value, .. }, ScalarValue::Num { value: right_value, .. }) => Ok(ScalarValue::Num {
                     value: op.eval(left_value, right_value),
-                    type_family: SqlTypeFamily::BigInt,
+                    type_family: SqlTypeFamilyOld::BigInt,
                 }),
                 (ScalarValue::Num { type_family, .. }, ScalarValue::String(value)) => {
                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
@@ -267,95 +267,95 @@ impl BiOperator {
                 (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::SmallInt,
+                        type_family: SqlTypeFamilyOld::SmallInt,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::SmallInt,
+                        type_family: SqlTypeFamilyOld::SmallInt,
                     },
                 )
                 | (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::Integer,
+                        type_family: SqlTypeFamilyOld::Integer,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::Integer,
+                        type_family: SqlTypeFamilyOld::Integer,
                     },
                 )
                 | (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::BigInt,
+                        type_family: SqlTypeFamilyOld::BigInt,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::BigInt,
+                        type_family: SqlTypeFamilyOld::BigInt,
                     },
                 )
                 | (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::SmallInt,
+                        type_family: SqlTypeFamilyOld::SmallInt,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::Integer,
+                        type_family: SqlTypeFamilyOld::Integer,
                     },
                 )
                 | (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::SmallInt,
+                        type_family: SqlTypeFamilyOld::SmallInt,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::BigInt,
+                        type_family: SqlTypeFamilyOld::BigInt,
                     },
                 )
                 | (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::Integer,
+                        type_family: SqlTypeFamilyOld::Integer,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::SmallInt,
+                        type_family: SqlTypeFamilyOld::SmallInt,
                     },
                 )
                 | (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::Integer,
+                        type_family: SqlTypeFamilyOld::Integer,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::BigInt,
+                        type_family: SqlTypeFamilyOld::BigInt,
                     },
                 )
                 | (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::BigInt,
+                        type_family: SqlTypeFamilyOld::BigInt,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::SmallInt,
+                        type_family: SqlTypeFamilyOld::SmallInt,
                     },
                 )
                 | (
                     ScalarValue::Num {
                         value: left_value,
-                        type_family: SqlTypeFamily::BigInt,
+                        type_family: SqlTypeFamilyOld::BigInt,
                     },
                     ScalarValue::Num {
                         value: right_value,
-                        type_family: SqlTypeFamily::Integer,
+                        type_family: SqlTypeFamilyOld::Integer,
                     },
                 ) => Ok(ScalarValue::Num {
                     value: op.eval(left_value, right_value),
-                    type_family: SqlTypeFamily::BigInt,
+                    type_family: SqlTypeFamilyOld::BigInt,
                 }),
                 (ScalarValue::Num { type_family, .. }, ScalarValue::String(value)) => {
                     Err(QueryExecutionError::invalid_text_representation(type_family, value))
@@ -454,7 +454,7 @@ pub enum UnOperator {
     Arithmetic(UnArithmetic),
     LogicalNot,
     BitwiseNot,
-    Cast(SqlType),
+    Cast(SqlTypeOld),
 }
 
 impl UnOperator {
@@ -471,31 +471,31 @@ impl UnOperator {
                 ScalarValue::Bool(value) => Ok(ScalarValue::Bool(!value)),
                 other => Err(QueryExecutionError::datatype_mismatch(
                     self,
-                    SqlTypeFamily::Bool,
+                    SqlTypeFamilyOld::Bool,
                     other.type_family().map(|ty| ty.to_string()).unwrap_or_else(|| "unknown".to_owned()),
                 )),
             },
             UnOperator::BitwiseNot => match value {
                 ScalarValue::Num {
                     value,
-                    type_family: SqlTypeFamily::SmallInt,
+                    type_family: SqlTypeFamilyOld::SmallInt,
                 } => Ok(ScalarValue::Num {
                     value: BigDecimal::from(!value.to_i16().unwrap()),
-                    type_family: SqlTypeFamily::SmallInt,
+                    type_family: SqlTypeFamilyOld::SmallInt,
                 }),
                 ScalarValue::Num {
                     value,
-                    type_family: SqlTypeFamily::Integer,
+                    type_family: SqlTypeFamilyOld::Integer,
                 } => Ok(ScalarValue::Num {
                     value: BigDecimal::from(!value.to_i32().unwrap()),
-                    type_family: SqlTypeFamily::Integer,
+                    type_family: SqlTypeFamilyOld::Integer,
                 }),
                 ScalarValue::Num {
                     value,
-                    type_family: SqlTypeFamily::BigInt,
+                    type_family: SqlTypeFamilyOld::BigInt,
                 } => Ok(ScalarValue::Num {
                     value: BigDecimal::from(!value.to_i64().unwrap()),
-                    type_family: SqlTypeFamily::BigInt,
+                    type_family: SqlTypeFamilyOld::BigInt,
                 }),
                 other => Err(QueryExecutionError::undefined_function(
                     self,
@@ -505,23 +505,23 @@ impl UnOperator {
             UnOperator::Cast(type_family) => match value {
                 ScalarValue::Null => Ok(ScalarValue::Null),
                 ScalarValue::Bool(value) => match type_family {
-                    SqlType::Bool => Ok(ScalarValue::Bool(value)),
-                    SqlType::Str { .. } => Ok(ScalarValue::String(value.to_string())),
-                    other => Err(QueryExecutionError::cannot_coerce(SqlTypeFamily::Bool, other)),
+                    SqlTypeOld::Bool => Ok(ScalarValue::Bool(value)),
+                    SqlTypeOld::Str { .. } => Ok(ScalarValue::String(value.to_string())),
+                    other => Err(QueryExecutionError::cannot_coerce(SqlTypeFamilyOld::Bool, other)),
                 },
                 ScalarValue::Num { value, .. } => match type_family {
-                    SqlType::Bool => Ok(ScalarValue::Bool(!value.is_zero())),
-                    SqlType::Str { .. } => Ok(ScalarValue::String(value.to_string())),
+                    SqlTypeOld::Bool => Ok(ScalarValue::Bool(!value.is_zero())),
+                    SqlTypeOld::Str { .. } => Ok(ScalarValue::String(value.to_string())),
                     other => Ok(ScalarValue::Num {
                         value,
                         type_family: other.family(),
                     }),
                 },
                 ScalarValue::String(value) => match type_family {
-                    SqlType::Str { .. } => Ok(ScalarValue::String(value)),
-                    SqlType::Bool => match Bool::from_str(value.as_str()) {
+                    SqlTypeOld::Str { .. } => Ok(ScalarValue::String(value)),
+                    SqlTypeOld::Bool => match Bool::from_str(value.as_str()) {
                         Ok(Bool(boolean)) => Ok(ScalarValue::Bool(boolean)),
-                        Err(_) => Err(QueryExecutionError::invalid_text_representation(SqlTypeFamily::Bool, value)),
+                        Err(_) => Err(QueryExecutionError::invalid_text_representation(SqlTypeFamilyOld::Bool, value)),
                     },
                     other => match BigDecimal::from_str(value.as_str()) {
                         Ok(value) => Ok(ScalarValue::Num {
@@ -574,20 +574,20 @@ pub enum UnArithmetic {
 }
 
 impl UnArithmetic {
-    fn eval(&self, value: BigDecimal, type_family: SqlTypeFamily) -> Result<ScalarValue, QueryExecutionError> {
+    fn eval(&self, value: BigDecimal, type_family: SqlTypeFamilyOld) -> Result<ScalarValue, QueryExecutionError> {
         match self {
             UnArithmetic::Neg => Ok(ScalarValue::Num { value: -value, type_family }),
             UnArithmetic::Pos => Ok(ScalarValue::Num { value, type_family }),
             UnArithmetic::SquareRoot => Ok(ScalarValue::Num {
                 value: value.sqrt().ok_or(QueryExecutionError::InvalidArgumentForPowerFunction)?,
-                type_family: SqlTypeFamily::Double,
+                type_family: SqlTypeFamilyOld::Double,
             }),
             UnArithmetic::CubeRoot => Ok(ScalarValue::Num {
                 value: value.cbrt(),
-                type_family: SqlTypeFamily::Double,
+                type_family: SqlTypeFamilyOld::Double,
             }),
             UnArithmetic::Factorial => {
-                if vec![SqlTypeFamily::SmallInt, SqlTypeFamily::Integer, SqlTypeFamily::BigInt].contains(&type_family) {
+                if vec![SqlTypeFamilyOld::SmallInt, SqlTypeFamilyOld::Integer, SqlTypeFamilyOld::BigInt].contains(&type_family) {
                     let mut result = BigDecimal::from(1);
                     let mut n = BigDecimal::from(1);
                     while n <= value {
@@ -596,7 +596,7 @@ impl UnArithmetic {
                     }
                     Ok(ScalarValue::Num {
                         value: result,
-                        type_family: SqlTypeFamily::BigInt,
+                        type_family: SqlTypeFamilyOld::BigInt,
                     })
                 } else {
                     Err(QueryExecutionError::undefined_function(self, type_family))

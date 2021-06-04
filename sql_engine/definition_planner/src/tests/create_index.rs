@@ -52,7 +52,7 @@ fn create_index_over_column_that_does_not_exists_in_table() {
     let transaction = db.transaction();
     let catalog = CatalogHandler::from(transaction.clone());
     catalog
-        .apply(create_table_ops("public", TABLE, vec![("column", SqlType::small_int())]))
+        .apply(create_table_ops("public", TABLE, vec![("column", SqlTypeOld::small_int())]))
         .unwrap();
 
     let planner = DefinitionPlanner::from(transaction);
@@ -72,9 +72,9 @@ fn create_index_over_multiple_columns() {
             "public",
             TABLE,
             vec![
-                ("col_1", SqlType::small_int()),
-                ("col_2", SqlType::small_int()),
-                ("col_3", SqlType::small_int()),
+                ("col_1", SqlTypeOld::small_int()),
+                ("col_2", SqlTypeOld::small_int()),
+                ("col_3", SqlTypeOld::small_int()),
             ],
         ))
         .unwrap();

@@ -131,7 +131,7 @@ dependencies = [
  "log",
  "rstest",
  "storage",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -239,7 +239,7 @@ version = "0.1.0"
 dependencies = [
  "definition",
  "query_response",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -250,10 +250,10 @@ dependencies = [
  "data_manipulation_query_plan",
  "data_manipulation_query_result",
  "data_manipulation_typed_queries",
- "data_manipulation_typed_tree",
+ "data_manipulation_typed_tree_old",
  "data_manipulation_untyped_queries",
- "data_manipulation_untyped_tree",
  "data_manipulation_untyped_tree_builder",
+ "data_manipulation_untyped_tree_old",
 ]
 
 [[package]]
@@ -267,7 +267,7 @@ dependencies = [
  "regex",
  "rstest",
  "scalar",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -278,13 +278,13 @@ dependencies = [
  "binary",
  "catalog",
  "data_manipulation_query_result",
- "data_manipulation_typed_tree",
+ "data_manipulation_typed_tree_old",
  "definition",
  "log",
  "query_response",
  "scalar",
  "storage",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -300,12 +300,12 @@ dependencies = [
 name = "data_manipulation_typed_queries"
 version = "0.1.0"
 dependencies = [
- "data_manipulation_typed_tree",
+ "data_manipulation_typed_tree_old",
  "definition",
 ]
 
 [[package]]
-name = "data_manipulation_typed_tree"
+name = "data_manipulation_typed_tree_old"
 version = "0.1.0"
 dependencies = [
  "bigdecimal",
@@ -314,25 +314,15 @@ dependencies = [
  "ordered-float",
  "rstest",
  "scalar",
- "types",
+ "types_old",
 ]
 
 [[package]]
 name = "data_manipulation_untyped_queries"
 version = "0.1.0"
 dependencies = [
- "data_manipulation_untyped_tree",
+ "data_manipulation_untyped_tree_old",
  "definition",
-]
-
-[[package]]
-name = "data_manipulation_untyped_tree"
-version = "0.1.0"
-dependencies = [
- "bigdecimal",
- "data_manipulation_operators",
- "log",
- "types",
 ]
 
 [[package]]
@@ -341,10 +331,20 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "data_manipulation_operators",
- "data_manipulation_untyped_tree",
+ "data_manipulation_untyped_tree_old",
  "definition",
  "query_ast",
- "types",
+ "types_old",
+]
+
+[[package]]
+name = "data_manipulation_untyped_tree_old"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "data_manipulation_operators",
+ "log",
+ "types_old",
 ]
 
 [[package]]
@@ -359,7 +359,7 @@ dependencies = [
 name = "definition"
 version = "0.1.0"
 dependencies = [
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -372,7 +372,7 @@ dependencies = [
  "query_ast",
  "query_response",
  "storage",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -395,6 +395,16 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "expression_validator"
+version = "0.1.0"
+dependencies = [
+ "operators",
+ "typed_tree",
+ "types",
+ "untyped_tree",
 ]
 
 [[package]]
@@ -713,7 +723,7 @@ dependencies = [
  "rstest",
  "simple_logger",
  "storage",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -818,6 +828,15 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "operators"
+version = "0.1.0"
+dependencies = [
+ "query_ast",
+ "rstest",
+ "types",
 ]
 
 [[package]]
@@ -1029,15 +1048,15 @@ dependencies = [
  "data_definition_execution_plan",
  "data_manipulation_operators",
  "data_manipulation_untyped_queries",
- "data_manipulation_untyped_tree",
  "data_manipulation_untyped_tree_builder",
+ "data_manipulation_untyped_tree_old",
  "definition",
  "log",
  "query_ast",
  "query_response",
  "simple_logger",
  "storage",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -1062,7 +1081,7 @@ dependencies = [
  "catalog",
  "data_manipulation_query_plan",
  "data_manipulation_typed_queries",
- "data_manipulation_typed_tree",
+ "data_manipulation_typed_tree_old",
  "storage",
 ]
 
@@ -1080,8 +1099,8 @@ name = "query_processing_type_check"
 version = "0.1.0"
 dependencies = [
  "data_manipulation_operators",
- "data_manipulation_typed_tree",
- "types",
+ "data_manipulation_typed_tree_old",
+ "types_old",
 ]
 
 [[package]]
@@ -1089,8 +1108,8 @@ name = "query_processing_type_coercion"
 version = "0.1.0"
 dependencies = [
  "data_manipulation_operators",
- "data_manipulation_typed_tree",
- "types",
+ "data_manipulation_typed_tree_old",
+ "types_old",
 ]
 
 [[package]]
@@ -1099,10 +1118,10 @@ version = "0.1.0"
 dependencies = [
  "bigdecimal",
  "data_manipulation_operators",
- "data_manipulation_typed_tree",
- "data_manipulation_untyped_tree",
+ "data_manipulation_typed_tree_old",
+ "data_manipulation_untyped_tree_old",
  "log",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -1231,7 +1250,7 @@ dependencies = [
  "bigdecimal",
  "binary",
  "query_ast",
- "types",
+ "types_old",
  "wire_protocol_payload",
 ]
 
@@ -1378,7 +1397,7 @@ dependencies = [
  "binary",
  "dashmap",
  "scalar",
- "types",
+ "types_old",
 ]
 
 [[package]]
@@ -1523,6 +1542,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "typed_tree"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "operators",
+ "ordered-float",
+ "rstest",
+ "scalar",
+ "types",
+]
+
+[[package]]
 name = "typenum"
 version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1530,6 +1561,10 @@ checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
 
 [[package]]
 name = "types"
+version = "0.1.0"
+
+[[package]]
+name = "types_old"
 version = "0.1.0"
 dependencies = [
  "query_ast",
@@ -1572,6 +1607,16 @@ name = "unicode-xid"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8ccb82d61f80a663efe1f787a51b16b5a51e3314d6ac365b08639f52387b33f3"
+
+[[package]]
+name = "untyped_tree"
+version = "0.1.0"
+dependencies = [
+ "bigdecimal",
+ "operators",
+ "typed_tree",
+ "types",
+]
 
 [[package]]
 name = "vcpkg"

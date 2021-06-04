@@ -1,5 +1,5 @@
 [package]
-name = "data_manipulation_untyped_tree"
+name = "data_manipulation_untyped_tree_old"
 version = "0.1.0"
 authors = ["Alex Dukhno <alex.dukhno@icloud.com>"]
 edition = "2018"
@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 data_manipulation_operators = { path = "../operators" }
-types = { path = "../../../types" }
+types_old = { path = "../../../types_old" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
-log = "0.4.13"
+log = "0.4"

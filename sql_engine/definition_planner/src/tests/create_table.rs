@@ -73,7 +73,7 @@ fn create_new_table_if_not_exist() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_defs: vec![ColumnInfo {
                 name: "column_name".to_owned(),
-                sql_type: SqlType::small_int()
+                sql_type: SqlTypeOld::small_int()
             }],
             if_not_exists: true,
         }))
@@ -94,7 +94,7 @@ fn successfully_create_table() {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
             column_defs: vec![ColumnInfo {
                 name: "column_name".to_owned(),
-                sql_type: SqlType::small_int()
+                sql_type: SqlTypeOld::small_int()
             }],
             if_not_exists: false,
         }))

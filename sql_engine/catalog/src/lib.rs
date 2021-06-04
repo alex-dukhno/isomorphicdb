@@ -18,7 +18,7 @@ use data_definition_execution_plan::{
 };
 use definition::{ColumnDef, FullTableName, SchemaName, TableDef};
 use storage::Transaction;
-use types::{SqlType, SqlTypeFamily};
+use types_old::{SqlTypeFamilyOld, SqlTypeOld};
 
 const DEFINITION_SCHEMA: &str = "DEFINITION_SCHEMA";
 const SCHEMATA_TABLE: &str = "SCHEMATA";
@@ -70,7 +70,7 @@ impl<'c> CatalogHandler<'c> {
                         .map(|(_key, value)| {
                             let row = value;
                             let name = row[3].as_string();
-                            let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                            let sql_type = SqlTypeOld::from_type_id(row[4].as_u64(), row[5].as_u64());
                             let ord_num = row[6].as_u64() as usize;
                             ColumnDef::new(name, sql_type, ord_num)
                         })
@@ -83,14 +83,14 @@ impl<'c> CatalogHandler<'c> {
         }
     }
 
-    pub fn columns(&self, full_table_name: &FullTableName) -> Vec<(String, SqlTypeFamily)> {
+    pub fn columns(&self, full_table_name: &FullTableName) -> Vec<(String, SqlTypeFamilyOld)> {
         self.columns_short(full_table_name)
             .into_iter()
             .map(|(name, sql_type)| (name, sql_type.family()))
             .collect()
     }
 
-    pub fn columns_short(&self, full_table_name: &FullTableName) -> Vec<(String, SqlType)> {
+    pub fn columns_short(&self, full_table_name: &FullTableName) -> Vec<(String, SqlTypeOld)> {
         let full_table_id = self
             .transaction
             .lookup_table_ref(format!("{}.{}", DEFINITION_SCHEMA, TABLES_TABLE))
@@ -109,7 +109,7 @@ impl<'c> CatalogHandler<'c> {
             .map(|(_key, value)| {
                 let row = value;
                 let name = row[3].as_string();
-                let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                let sql_type = SqlTypeOld::from_type_id(row[4].as_u64(), row[5].as_u64());
                 (name, sql_type)
             })
             .collect()
@@ -356,7 +356,7 @@ impl<'c> CatalogHandler<'c> {
                                     .map(|(_key, value)| {
                                         let row = value;
                                         let name = row[3].as_string();
-                                        let sql_type = SqlType::from_type_id(row[4].as_u64(), row[5].as_u64());
+                                        let sql_type = SqlTypeOld::from_type_id(row[4].as_u64(), row[5].as_u64());
                                         let ord_num = row[6].as_u64() as usize;
                                         ColumnDef::new(name, sql_type, ord_num)
                                     })

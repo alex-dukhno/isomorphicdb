@@ -43,7 +43,7 @@ fn create_table(schema_name: &str, table_name: &str, columns: Vec<ColumnDef>) ->
     create_table_if_not_exists(schema_name, table_name, columns, false)
 }
 
-fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlType)>) -> SchemaChange {
+fn create_table_ops(schema_name: &str, table_name: &str, columns: Vec<(&str, SqlTypeOld)>) -> SchemaChange {
     SchemaChange::CreateTable(CreateTableQuery {
         full_table_name: FullTableName::from((&schema_name, &table_name)),
         column_defs: columns

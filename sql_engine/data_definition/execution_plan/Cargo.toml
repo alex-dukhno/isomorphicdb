@@ -7,6 +7,6 @@ publish = false
 
 [dependencies]
 definition = { path = "../../../definition" }
-types = { path = "../../../types" }
+types_old = { path = "../../../types_old" }
 
 query_response = { path = "../../../postgre_sql/query_response" }

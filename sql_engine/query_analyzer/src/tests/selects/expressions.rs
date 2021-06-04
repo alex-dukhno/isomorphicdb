@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
+use data_manipulation_untyped_tree_old::{UntypedItemOld, UntypedTreeOld, UntypedValueOld};
 
 use super::*;
 
@@ -23,7 +23,7 @@ fn select_all_columns_from_table() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlTypeOld::integer())]))
         .unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
@@ -32,10 +32,10 @@ fn select_all_columns_from_table() {
         analyzer.analyze(select(SCHEMA, TABLE)),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![UntypedTree::Item(UntypedItem::Column {
+            projection_items: vec![UntypedTreeOld::Item(UntypedItemOld::Column {
                 name: "col1".to_owned(),
                 index: 0,
-                sql_type: SqlType::integer()
+                sql_type: SqlTypeOld::integer()
             })],
             filter: None
         }))
@@ -49,7 +49,7 @@ fn select_specified_column_from_table() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlTypeOld::integer())]))
         .unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
@@ -62,10 +62,10 @@ fn select_specified_column_from_table() {
         )),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![UntypedTree::Item(UntypedItem::Column {
+            projection_items: vec![UntypedTreeOld::Item(UntypedItemOld::Column {
                 name: "col1".to_owned(),
                 index: 0,
-                sql_type: SqlType::integer()
+                sql_type: SqlTypeOld::integer()
             })],
             filter: None
         }))
@@ -79,7 +79,7 @@ fn select_column_that_is_not_in_table() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlTypeOld::integer())]))
         .unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
@@ -101,7 +101,7 @@ fn select_from_table_with_constant() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlTypeOld::integer())]))
         .unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
@@ -110,7 +110,7 @@ fn select_from_table_with_constant() {
         analyzer.analyze(select_with_columns(SCHEMA, TABLE, vec![SelectItem::UnnamedExpr(Expr::Value(number(1)))],)),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))],
+            projection_items: vec![UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Int(1)))],
             filter: None
         }))
     );
@@ -123,7 +123,7 @@ fn select_parameters_from_a_table() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlTypeOld::integer())]))
         .unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);
@@ -132,7 +132,7 @@ fn select_parameters_from_a_table() {
         analyzer.analyze(select_with_columns(SCHEMA, TABLE, vec![SelectItem::UnnamedExpr(Expr::Param(1))],)),
         Ok(UntypedQuery::Select(UntypedSelectQuery {
             full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-            projection_items: vec![UntypedTree::Item(UntypedItem::Param(0))],
+            projection_items: vec![UntypedTreeOld::Item(UntypedItemOld::Param(0))],
             filter: None
         }))
     );
@@ -142,7 +142,7 @@ fn select_parameters_from_a_table() {
 mod multiple_values {
     use super::*;
     use data_manipulation_operators::UnOperator;
-    use data_manipulation_untyped_tree::{UntypedItem, UntypedTree, UntypedValue};
+    use data_manipulation_untyped_tree_old::{UntypedItemOld, UntypedTreeOld, UntypedValueOld};
 
     fn select_value_as_expression_with_operation(left: Expr, op: BinaryOperator, right: Expr) -> Query {
         select_with_columns(
@@ -163,7 +163,7 @@ mod multiple_values {
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::small_int())]))
             .unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
@@ -176,10 +176,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("1".to_owned())))),
+                projection_items: vec![UntypedTreeOld::BiOp {
+                    left: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal("1".to_owned())))),
                     op: BiOperator::Arithmetic(BiArithmetic::Add),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
+                    right: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Int(1))))
                 }],
                 filter: None
             }))
@@ -193,7 +193,7 @@ mod multiple_values {
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::var_char(255))]))
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::var_char(255))]))
             .unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
@@ -206,10 +206,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned())))),
+                projection_items: vec![UntypedTreeOld::BiOp {
+                    left: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal("str".to_owned())))),
                     op: BiOperator::StringOp(Concat),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
+                    right: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal("str".to_owned()))))
                 }],
                 filter: None
             }))
@@ -222,7 +222,7 @@ mod multiple_values {
         let transaction = db.transaction();
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
+        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::bool())])).unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
 
@@ -234,10 +234,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("1".to_owned())))),
+                projection_items: vec![UntypedTreeOld::BiOp {
+                    left: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal("1".to_owned())))),
                     op: BiOperator::Comparison(Comparison::Gt),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
+                    right: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Int(1))))
                 }],
                 filter: None
             }))
@@ -250,7 +250,7 @@ mod multiple_values {
         let transaction = db.transaction();
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
+        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::bool())])).unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
 
@@ -262,15 +262,15 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::UnOp {
-                        op: UnOperator::Cast(SqlType::Bool),
-                        item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
+                projection_items: vec![UntypedTreeOld::BiOp {
+                    left: Box::new(UntypedTreeOld::UnOp {
+                        op: UnOperator::Cast(SqlTypeOld::Bool),
+                        item: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal("t".to_owned()))))
                     }),
                     op: BiOperator::Logical(BiLogical::And),
-                    right: Box::new(UntypedTree::UnOp {
-                        op: UnOperator::Cast(SqlType::Bool),
-                        item: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("t".to_owned()))))
+                    right: Box::new(UntypedTreeOld::UnOp {
+                        op: UnOperator::Cast(SqlTypeOld::Bool),
+                        item: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal("t".to_owned()))))
                     }),
                 }],
                 filter: None
@@ -285,7 +285,7 @@ mod multiple_values {
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
         catalog
-            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::small_int())]))
+            .apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::small_int())]))
             .unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
@@ -298,10 +298,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1)))),
+                projection_items: vec![UntypedTreeOld::BiOp {
+                    left: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Int(1)))),
                     op: BiOperator::Bitwise(Bitwise::Or),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
+                    right: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Int(1))))
                 }],
                 filter: None
             }))
@@ -314,7 +314,7 @@ mod multiple_values {
         let transaction = db.transaction();
         let catalog = CatalogHandler::from(transaction.clone());
         catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
+        catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::bool())])).unwrap();
 
         let analyzer = QueryAnalyzer::from(transaction);
 
@@ -326,10 +326,10 @@ mod multiple_values {
             )),
             Ok(UntypedQuery::Select(UntypedSelectQuery {
                 full_table_name: FullTableName::from((&SCHEMA, &TABLE)),
-                projection_items: vec![UntypedTree::BiOp {
-                    left: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("s".to_owned())))),
+                projection_items: vec![UntypedTreeOld::BiOp {
+                    left: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal("s".to_owned())))),
                     op: BiOperator::Matching(Matching::Like),
-                    right: Box::new(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("str".to_owned()))))
+                    right: Box::new(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal("str".to_owned()))))
                 }],
                 filter: None
             }))

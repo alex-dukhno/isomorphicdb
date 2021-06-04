@@ -14,7 +14,7 @@
 
 use catalog::CatalogHandler;
 use data_manipulation::{
-    QueryPlan, TypedDeleteQuery, TypedInsertQuery, TypedQuery, TypedSelectQuery, TypedTree, TypedUpdateQuery, UntypedInsertQuery, UntypedQuery,
+    QueryPlan, TypedDeleteQuery, TypedInsertQuery, TypedQuery, TypedSelectQuery, TypedTreeOld, TypedUpdateQuery, UntypedInsertQuery, UntypedQuery,
     UntypedUpdateQuery,
 };
 use definition::ColumnDef;
@@ -28,7 +28,7 @@ use query_planner::QueryPlanner;
 use query_processing::{TypeChecker, TypeCoercion, TypeInference};
 use std::fmt::{self, Debug, Formatter};
 use storage::{Database, Transaction};
-use types::SqlTypeFamily;
+use types_old::SqlTypeFamilyOld;
 
 pub struct TransactionManager {
     database: Database,
@@ -97,7 +97,7 @@ impl<'t> TransactionContext<'t> {
         Ok(self.query_analyzer.analyze(query)?)
     }
 
-    pub fn process_untyped_query(&self, untyped_query: UntypedQuery, param_types: Vec<SqlTypeFamily>) -> Result<TypedQuery, QueryError> {
+    pub fn process_untyped_query(&self, untyped_query: UntypedQuery, param_types: Vec<SqlTypeFamilyOld>) -> Result<TypedQuery, QueryError> {
         match untyped_query {
             UntypedQuery::Insert(insert) => {
                 let type_coerced = insert
@@ -107,16 +107,16 @@ impl<'t> TransactionContext<'t> {
                         values
                             .into_iter()
                             .map(|value| value.map(|v| self.type_inference.infer_type(v, &param_types)))
-                            .collect::<Vec<Option<TypedTree>>>()
+                            .collect::<Vec<Option<TypedTreeOld>>>()
                     })
                     .map(|values| {
                         values
                             .into_iter()
                             .map(|value| value.map(|v| self.type_checker.type_check(v)))
-                            .collect::<Vec<Option<TypedTree>>>()
+                            .collect::<Vec<Option<TypedTreeOld>>>()
                     })
                     .map(|values| values.into_iter().map(|value| value.map(|c| self.type_coercion.coerce(c))).collect())
-                    .collect::<Vec<Vec<Option<TypedTree>>>>();
+                    .collect::<Vec<Vec<Option<TypedTreeOld>>>>();
                 Ok(TypedQuery::Insert(TypedInsertQuery {
                     full_table_name: insert.full_table_name,
                     values: type_coerced,
@@ -131,7 +131,7 @@ impl<'t> TransactionContext<'t> {
                 let type_coerced_values = type_checked_values
                     .into_iter()
                     .map(|value| self.type_coercion.coerce(value))
-                    .collect::<Vec<TypedTree>>();
+                    .collect::<Vec<TypedTreeOld>>();
 
                 let typed_filter = select.filter.map(|value| self.type_inference.infer_type(value, &param_types));
                 let type_checked_filter = typed_filter.map(|value| self.type_checker.type_check(value));
@@ -154,7 +154,7 @@ impl<'t> TransactionContext<'t> {
                 let type_coerced = type_checked
                     .into_iter()
                     .map(|value| value.map(|value| self.type_coercion.coerce(value)))
-                    .collect::<Vec<Option<TypedTree>>>();
+                    .collect::<Vec<Option<TypedTreeOld>>>();
 
                 let typed_filter = update.filter.map(|value| self.type_inference.infer_type(value, &param_types));
                 let type_checked_filter = typed_filter.map(|value| self.type_checker.type_check(value));
@@ -186,7 +186,7 @@ impl<'t> TransactionContext<'t> {
         Ok(self.catalog.apply(schema_change)?.into())
     }
 
-    pub fn process(&self, query: Query, param_types: Vec<SqlTypeFamily>) -> Result<TypedQuery, QueryError> {
+    pub fn process(&self, query: Query, param_types: Vec<SqlTypeFamilyOld>) -> Result<TypedQuery, QueryError> {
         match self.query_analyzer.analyze(query)? {
             UntypedQuery::Insert(insert) => {
                 let type_coerced = insert
@@ -196,16 +196,16 @@ impl<'t> TransactionContext<'t> {
                         values
                             .into_iter()
                             .map(|value| value.map(|v| self.type_inference.infer_type(v, &param_types)))
-                            .collect::<Vec<Option<TypedTree>>>()
+                            .collect::<Vec<Option<TypedTreeOld>>>()
                     })
                     .map(|values| {
                         values
                             .into_iter()
                             .map(|value| value.map(|v| self.type_checker.type_check(v)))
-                            .collect::<Vec<Option<TypedTree>>>()
+                            .collect::<Vec<Option<TypedTreeOld>>>()
                     })
                     .map(|values| values.into_iter().map(|value| value.map(|v| self.type_coercion.coerce(v))).collect())
-                    .collect::<Vec<Vec<Option<TypedTree>>>>();
+                    .collect::<Vec<Vec<Option<TypedTreeOld>>>>();
                 Ok(TypedQuery::Insert(TypedInsertQuery {
                     full_table_name: insert.full_table_name,
                     values: type_coerced,
@@ -220,7 +220,7 @@ impl<'t> TransactionContext<'t> {
                 let type_coerced_values = type_checked_values
                     .into_iter()
                     .map(|value| self.type_coercion.coerce(value))
-                    .collect::<Vec<TypedTree>>();
+                    .collect::<Vec<TypedTreeOld>>();
 
                 let typed_filter = select.filter.map(|value| self.type_inference.infer_type(value, &[]));
                 let type_checked_filter = typed_filter.map(|value| self.type_checker.type_check(value));
@@ -243,7 +243,7 @@ impl<'t> TransactionContext<'t> {
                 let type_coerced = type_checked
                     .into_iter()
                     .map(|value| value.map(|value| self.type_coercion.coerce(value)))
-                    .collect::<Vec<Option<TypedTree>>>();
+                    .collect::<Vec<Option<TypedTreeOld>>>();
 
                 let typed_filter = update.filter.map(|value| self.type_inference.infer_type(value, &[]));
                 let type_checked_filter = typed_filter.map(|value| self.type_checker.type_check(value));

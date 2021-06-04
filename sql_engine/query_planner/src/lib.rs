@@ -18,7 +18,7 @@ use data_manipulation_query_plan::{
     StaticExpressionEval, StaticValues, TableRecordKeys, UpdateQueryPlan,
 };
 use data_manipulation_typed_queries::TypedQuery;
-use data_manipulation_typed_tree::{TypedItem, TypedTree};
+use data_manipulation_typed_tree_old::{TypedItemOld, TypedTreeOld};
 use storage::Transaction;
 
 pub struct QueryPlanner<'p> {
@@ -77,7 +77,7 @@ impl<'p> QueryPlanner<'p> {
                         .projection_items
                         .into_iter()
                         .map(|item| match item {
-                            TypedTree::Item(TypedItem::Column { name, .. }) => name,
+                            TypedTreeOld::Item(TypedItemOld::Column { name, .. }) => name,
                             _ => unimplemented!(),
                         })
                         .collect(),

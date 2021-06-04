@@ -14,7 +14,7 @@
 
 use definition::{FullTableName, SchemaName};
 use query_response::{QueryError, QueryEvent};
-use types::SqlType;
+use types_old::SqlTypeOld;
 
 #[derive(Debug, PartialEq)]
 pub struct CreateSchemaQuery {
@@ -32,7 +32,7 @@ pub struct DropSchemasQuery {
 #[derive(Debug, PartialEq)]
 pub struct ColumnInfo {
     pub name: String,
-    pub sql_type: SqlType,
+    pub sql_type: SqlTypeOld,
 }
 
 #[derive(Debug, PartialEq)]
@@ -52,12 +52,12 @@ pub struct DropTablesQuery {
 #[derive(Debug, PartialEq)]
 pub struct ColumnDesc {
     pub name: String,
-    pub sql_type: SqlType,
+    pub sql_type: SqlTypeOld,
     pub ord_num: usize,
 }
 
-impl From<(String, SqlType, usize)> for ColumnDesc {
-    fn from(tuple: (String, SqlType, usize)) -> ColumnDesc {
+impl From<(String, SqlTypeOld, usize)> for ColumnDesc {
+    fn from(tuple: (String, SqlTypeOld, usize)) -> ColumnDesc {
         let (name, sql_type, ord_num) = tuple;
         ColumnDesc { name, sql_type, ord_num }
     }

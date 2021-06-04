@@ -51,7 +51,7 @@ fn drop_table() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::bool())])).unwrap();
 
     let planner = DefinitionPlanner::from(transaction);
     assert_eq!(
@@ -88,9 +88,9 @@ fn drop_table_if_exists() {
     let transaction = db.transaction();
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
-    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::bool())])).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
+        .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlTypeOld::bool())]))
         .unwrap();
 
     let planner = DefinitionPlanner::from(transaction);
@@ -111,9 +111,9 @@ fn drop_table_cascade() {
     let catalog = CatalogHandler::from(transaction.clone());
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
-    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlType::bool())])).unwrap();
+    catalog.apply(create_table_ops(SCHEMA, TABLE, vec![("col", SqlTypeOld::bool())])).unwrap();
     catalog
-        .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlType::bool())]))
+        .apply(create_table_ops(SCHEMA, "table_1", vec![("col", SqlTypeOld::bool())]))
         .unwrap();
     let planner = DefinitionPlanner::from(transaction);
     assert_eq!(

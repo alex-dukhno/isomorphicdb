@@ -13,6 +13,7 @@ simple_logger = { version = "1.10.0", default-features = false }
 [workspace]
 members = [
     "postgre_sql",
+    "expression_validator",
     "sql_engine/catalog",
     "sql_engine/definition_planner",
     "sql_engine/data_definition",
@@ -23,6 +24,10 @@ members = [
     "storage",
     "node_engine",
     "data_repr",
+    "types_old",
     "types",
     "definition",
+    "inter_repr/operators",
+    "inter_repr/untyped_tree",
+    "inter_repr/typed_tree",
 ]

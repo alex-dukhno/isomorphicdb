@@ -10,10 +10,10 @@ data_definition_execution_plan = { path = "../data_definition/execution_plan" }
 binary = { path = "../../data_repr/binary" }
 definition = { path = "../../definition" }
 storage = { path = "../../storage/" }
-types = { path = "../../types" }
+types_old = { path = "../../types_old" }
 
 dashmap = "4.0.2"
-log = "0.4.14"
+log = "0.4"
 
 [dev-dependencies]
 rstest = "0.10.0"

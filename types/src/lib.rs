@@ -12,264 +12,905 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use query_ast::DataType;
 use std::{
+    cmp::Ordering,
     fmt::{self, Display, Formatter},
-    str::FromStr,
 };
-use wire_protocol_payload::*;
 
-#[derive(Debug, PartialEq)]
-pub struct IncomparableSqlTypeFamilies {
-    left: SqlTypeFamily,
-    right: SqlTypeFamily,
-}
-
-#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum SqlTypeFamily {
+    Int(IntNumFamily),
+    Float(FloatNumFamily),
+    String(StringFamily),
+    Numeric,
     Bool,
-    String,
-    SmallInt,
-    Integer,
-    BigInt,
-    Real,
-    Double,
+    Unknown,
 }
 
 impl Display for SqlTypeFamily {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
+            SqlTypeFamily::Int(int) => write!(f, "{}", int),
+            SqlTypeFamily::Float(float) => write!(f, "{}", float),
+            SqlTypeFamily::String(string) => write!(f, "{}", string),
+            SqlTypeFamily::Numeric => write!(f, "numeric"),
             SqlTypeFamily::Bool => write!(f, "bool"),
-            SqlTypeFamily::String => write!(f, "string"),
-            SqlTypeFamily::SmallInt => write!(f, "smallint"),
-            SqlTypeFamily::Integer => write!(f, "integer"),
-            SqlTypeFamily::BigInt => write!(f, "bigint"),
-            SqlTypeFamily::Real => write!(f, "real"),
-            SqlTypeFamily::Double => write!(f, "double precision"),
+            SqlTypeFamily::Unknown => write!(f, "unknown"),
         }
     }
 }
 
-impl SqlTypeFamily {
-    pub fn compare(&self, other: &SqlTypeFamily) -> Result<SqlTypeFamily, IncomparableSqlTypeFamilies> {
-        if self.is_float() && other.is_float() {
-            if self == other {
-                Ok(*self)
-            } else if self == &SqlTypeFamily::Real && other == &SqlTypeFamily::Double {
-                Ok(*other)
-            } else {
-                Ok(*self)
-            }
-        } else if self.is_int() && other.is_int() {
-            if self == other {
-                Ok(*self)
-            } else if self == &SqlTypeFamily::SmallInt && other == &SqlTypeFamily::Integer || other == &SqlTypeFamily::BigInt {
-                Ok(*other)
-            } else {
-                Ok(*self)
-            }
-        } else if self.is_float() && other.is_int() {
-            Ok(*self)
-        } else if self.is_int() && other.is_float() {
-            Ok(*other)
-        } else if self != other {
-            Err(IncomparableSqlTypeFamilies { left: *self, right: *other })
-        } else {
-            Ok(*self)
+impl PartialOrd for SqlTypeFamily {
+    fn partial_cmp(&self, other: &SqlTypeFamily) -> Option<Ordering> {
+        match (self, other) {
+            (SqlTypeFamily::Unknown, SqlTypeFamily::Unknown) => Some(Ordering::Equal),
+            (SqlTypeFamily::Unknown, _other) => Some(Ordering::Less),
+            (SqlTypeFamily::Int(_), SqlTypeFamily::Unknown) => Some(Ordering::Greater),
+            (SqlTypeFamily::Int(_), SqlTypeFamily::Bool) => None,
+            (SqlTypeFamily::Int(this), SqlTypeFamily::Int(that)) => this.partial_cmp(that),
+            (SqlTypeFamily::Int(_), SqlTypeFamily::Float(_)) => Some(Ordering::Less),
+            (SqlTypeFamily::Int(_), SqlTypeFamily::Numeric) => Some(Ordering::Less),
+            (SqlTypeFamily::Int(_), SqlTypeFamily::String(_)) => None,
+            (SqlTypeFamily::Float(_), SqlTypeFamily::Unknown) => Some(Ordering::Greater),
+            (SqlTypeFamily::Float(_), SqlTypeFamily::Bool) => None,
+            (SqlTypeFamily::Float(_), SqlTypeFamily::Int(_)) => Some(Ordering::Greater),
+            (SqlTypeFamily::Float(this), SqlTypeFamily::Float(that)) => this.partial_cmp(that),
+            (SqlTypeFamily::Float(_), SqlTypeFamily::Numeric) => Some(Ordering::Greater),
+            (SqlTypeFamily::Float(_), SqlTypeFamily::String(_)) => None,
+            (SqlTypeFamily::String(_), SqlTypeFamily::Unknown) => Some(Ordering::Greater),
+            (SqlTypeFamily::String(_), SqlTypeFamily::Bool) => None,
+            (SqlTypeFamily::String(_), SqlTypeFamily::Int(_)) => None,
+            (SqlTypeFamily::String(_), SqlTypeFamily::Float(_)) => None,
+            (SqlTypeFamily::String(_), SqlTypeFamily::Numeric) => None,
+            (SqlTypeFamily::String(this), SqlTypeFamily::String(that)) => this.partial_cmp(that),
+            (SqlTypeFamily::Numeric, SqlTypeFamily::Unknown) => Some(Ordering::Greater),
+            (SqlTypeFamily::Numeric, SqlTypeFamily::Bool) => None,
+            (SqlTypeFamily::Numeric, SqlTypeFamily::Int(_)) => Some(Ordering::Greater),
+            (SqlTypeFamily::Numeric, SqlTypeFamily::Float(_)) => Some(Ordering::Less),
+            (SqlTypeFamily::Numeric, SqlTypeFamily::Numeric) => Some(Ordering::Equal),
+            (SqlTypeFamily::Numeric, SqlTypeFamily::String(_)) => None,
+            (SqlTypeFamily::Bool, SqlTypeFamily::Unknown) => Some(Ordering::Greater),
+            (SqlTypeFamily::Bool, SqlTypeFamily::Bool) => Some(Ordering::Equal),
+            (SqlTypeFamily::Bool, _other) => None,
         }
     }
-
-    fn is_float(&self) -> bool {
-        self == &SqlTypeFamily::Real || self == &SqlTypeFamily::Double
-    }
-
-    fn is_int(&self) -> bool {
-        self == &SqlTypeFamily::SmallInt || self == &SqlTypeFamily::Integer || self == &SqlTypeFamily::BigInt
-    }
 }
 
-#[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
-pub enum SqlType {
-    Bool,
-    Str { len: u64, kind: Str },
-    Num(Num),
-}
-
-#[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
-pub enum Num {
+#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
+pub enum IntNumFamily {
     SmallInt,
     Integer,
     BigInt,
+}
+
+impl Display for IntNumFamily {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            IntNumFamily::SmallInt => write!(f, "smallint"),
+            IntNumFamily::Integer => write!(f, "integer"),
+            IntNumFamily::BigInt => write!(f, "bigint"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
+pub enum FloatNumFamily {
     Real,
     Double,
 }
 
-#[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, Ord, PartialOrd)]
-pub enum Str {
-    Const,
-    Var,
-}
-
-impl SqlType {
-    pub fn family(&self) -> SqlTypeFamily {
-        match self {
-            SqlType::Bool => SqlTypeFamily::Bool,
-            SqlType::Str { .. } => SqlTypeFamily::String,
-            SqlType::Num(Num::SmallInt) => SqlTypeFamily::SmallInt,
-            SqlType::Num(Num::Integer) => SqlTypeFamily::Integer,
-            SqlType::Num(Num::BigInt) => SqlTypeFamily::BigInt,
-            SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => SqlTypeFamily::Real,
-        }
-    }
-
-    pub fn small_int() -> SqlType {
-        SqlType::Num(Num::SmallInt)
-    }
-
-    pub fn integer() -> SqlType {
-        SqlType::Num(Num::Integer)
-    }
-
-    pub fn big_int() -> SqlType {
-        SqlType::Num(Num::BigInt)
-    }
-
-    pub fn real() -> SqlType {
-        SqlType::Num(Num::Real)
-    }
-
-    pub fn double_precision() -> SqlType {
-        SqlType::Num(Num::Double)
-    }
-
-    pub fn bool() -> SqlType {
-        SqlType::Bool
-    }
-
-    pub fn char(len: u64) -> SqlType {
-        SqlType::Str { len, kind: Str::Const }
-    }
-
-    pub fn var_char(len: u64) -> SqlType {
-        SqlType::Str { len, kind: Str::Var }
-    }
-
-    pub fn type_id(&self) -> u64 {
-        match self {
-            SqlType::Bool => 0,
-            SqlType::Str { kind: Str::Const, .. } => 1,
-            SqlType::Str { kind: Str::Var, .. } => 2,
-            SqlType::Num(Num::SmallInt) => 3,
-            SqlType::Num(Num::Integer) => 4,
-            SqlType::Num(Num::BigInt) => 5,
-            SqlType::Num(Num::Real) => 6,
-            SqlType::Num(Num::Double) => 7,
-        }
-    }
-
-    pub fn from_type_id(type_id: u64, chars_len: u64) -> SqlType {
-        match type_id {
-            0 => SqlType::Bool,
-            1 => SqlType::char(chars_len),
-            2 => SqlType::var_char(chars_len),
-            3 => SqlType::small_int(),
-            4 => SqlType::integer(),
-            5 => SqlType::big_int(),
-            6 => SqlType::real(),
-            7 => SqlType::double_precision(),
-            _ => unreachable!(),
-        }
-    }
-
-    pub fn chars_len(&self) -> Option<u64> {
-        match self {
-            SqlType::Str { len, .. } => Some(*len),
-            _ => None,
-        }
-    }
-}
-
-impl From<DataType> for SqlType {
-    fn from(data_type: DataType) -> SqlType {
-        match data_type {
-            DataType::SmallInt => SqlType::small_int(),
-            DataType::Int => SqlType::integer(),
-            DataType::BigInt => SqlType::big_int(),
-            DataType::Char(len) => SqlType::char(len as u64),
-            DataType::VarChar(len) => SqlType::var_char(len.unwrap_or(255) as u64),
-            DataType::Bool => SqlType::Bool,
-            DataType::Real => SqlType::real(),
-            DataType::Double => SqlType::double_precision(),
-        }
-    }
-}
-
-impl Display for SqlType {
+impl Display for FloatNumFamily {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            SqlType::Bool => write!(f, "bool"),
-            SqlType::Str { len, kind: Str::Const } => write!(f, "char({})", len),
-            SqlType::Str { len, kind: Str::Var } => write!(f, "varchar({})", len),
-            SqlType::Num(Num::SmallInt) => write!(f, "smallint"),
-            SqlType::Num(Num::Integer) => write!(f, "integer"),
-            SqlType::Num(Num::BigInt) => write!(f, "bigint"),
-            SqlType::Num(Num::Real) => write!(f, "real"),
-            SqlType::Num(Num::Double) => write!(f, "double precision"),
+            FloatNumFamily::Real => write!(f, "real"),
+            FloatNumFamily::Double => write!(f, "double precision"),
         }
     }
 }
 
-impl From<&u32> for SqlTypeFamily {
-    fn from(pg_type: &u32) -> SqlTypeFamily {
-        match pg_type {
-            &SMALLINT => SqlTypeFamily::SmallInt,
-            &INT => SqlTypeFamily::Integer,
-            &BIGINT => SqlTypeFamily::BigInt,
-            &CHAR | &VARCHAR => SqlTypeFamily::String,
-            &BOOL => SqlTypeFamily::Bool,
-            _ => unimplemented!(),
-        }
-    }
+#[derive(Debug, PartialEq, Eq, Copy, Clone, PartialOrd, Ord)]
+pub enum StringFamily {
+    Char,
+    VarChar,
+    Text,
 }
 
-impl From<&SqlType> for u32 {
-    fn from(sql_type: &SqlType) -> u32 {
-        match sql_type {
-            SqlType::Bool => BOOL,
-            SqlType::Str { kind: Str::Const, .. } => CHAR,
-            SqlType::Str { kind: Str::Var, .. } => VARCHAR,
-            SqlType::Num(Num::SmallInt) => SMALLINT,
-            SqlType::Num(Num::Integer) => INT,
-            SqlType::Num(Num::BigInt) => BIGINT,
-            SqlType::Num(Num::Real) | SqlType::Num(Num::Double) => unreachable!(),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug, Copy, Clone, Eq)]
-pub struct Bool(pub bool);
-
-impl FromStr for Bool {
-    type Err = ParseBoolError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let val = s.to_lowercase();
-        match val.as_str() {
-            "t" | "true" | "on" | "yes" | "y" | "1" => Ok(Bool(true)),
-            "f" | "false" | "off" | "no" | "n" | "0" => Ok(Bool(false)),
-            _ => Err(ParseBoolError(val)),
-        }
-    }
-}
-
-#[derive(PartialEq, Debug)]
-pub struct ParseBoolError(String);
-
-impl Display for ParseBoolError {
+impl Display for StringFamily {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "error to parse {:?} into boolean", self.0)
+        match self {
+            StringFamily::Char => write!(f, "char"),
+            StringFamily::VarChar => write!(f, "varchar"),
+            StringFamily::Text => write!(f, "text"),
+        }
     }
 }
 
 #[cfg(test)]
-mod tests;
+mod ordering {
+    use super::*;
+
+    #[test]
+    fn unknown() {
+        assert_eq!(SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Unknown), Some(Ordering::Equal));
+
+        assert_eq!(SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Bool), Some(Ordering::Less));
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Unknown), Some(Ordering::Greater));
+
+        assert_eq!(SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Numeric), Some(Ordering::Less));
+        assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Unknown), Some(Ordering::Greater));
+
+        assert_eq!(
+            SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Unknown),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Unknown),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Unknown),
+            Some(Ordering::Greater)
+        );
+
+        assert_eq!(
+            SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Unknown),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Unknown),
+            Some(Ordering::Greater)
+        );
+
+        assert_eq!(
+            SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Unknown),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Unknown),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Unknown),
+            Some(Ordering::Greater)
+        );
+    }
+
+    #[test]
+    fn boolean() {
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Bool), Some(Ordering::Equal));
+
+        assert_eq!(SqlTypeFamily::Unknown.partial_cmp(&SqlTypeFamily::Bool), Some(Ordering::Less));
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Unknown), Some(Ordering::Greater));
+
+        assert_eq!(SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::String(StringFamily::Text)), None);
+        assert_eq!(SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::String(StringFamily::Char)), None);
+        assert_eq!(SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)), None);
+
+        assert_eq!(SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)), None);
+        assert_eq!(SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)), None);
+        assert_eq!(SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)), None);
+
+        assert_eq!(SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)), None);
+        assert_eq!(SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)), None);
+
+        assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Numeric), None);
+    }
+
+    #[cfg(test)]
+    mod integers {
+        use super::*;
+
+        #[test]
+        fn small() {
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Equal)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Numeric),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                None
+            );
+        }
+
+        #[test]
+        fn int() {
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Equal)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Numeric),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                None
+            );
+        }
+
+        #[test]
+        fn big_int() {
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Equal)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Less)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Numeric),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                None
+            );
+        }
+    }
+
+    #[cfg(test)]
+    mod floats {
+        use super::*;
+
+        #[test]
+        fn real() {
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Equal)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Less)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Numeric),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Less)
+            );
+
+            assert_eq!(SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Bool), None);
+            assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)), None);
+
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                None
+            );
+        }
+
+        #[test]
+        fn double() {
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Equal)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Numeric),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                Some(Ordering::Less)
+            );
+
+            assert_eq!(SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Bool), None);
+            assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)), None);
+
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn numeric() {
+        assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Numeric), Some(Ordering::Equal));
+
+        assert_eq!(
+            SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::Numeric),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::Numeric),
+            Some(Ordering::Greater)
+        );
+
+        assert_eq!(
+            SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::Numeric),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::Numeric),
+            Some(Ordering::Less)
+        );
+        assert_eq!(
+            SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+            Some(Ordering::Greater)
+        );
+        assert_eq!(
+            SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::Numeric),
+            Some(Ordering::Less)
+        );
+
+        assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::Bool), None);
+        assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::Numeric), None);
+
+        assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::String(StringFamily::Char)), None);
+        assert_eq!(SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Numeric), None);
+        assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)), None);
+        assert_eq!(SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Numeric), None);
+        assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::String(StringFamily::Text)), None);
+        assert_eq!(SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Numeric), None);
+    }
+
+    #[cfg(test)]
+    mod strings {
+        use super::*;
+
+        #[test]
+        fn char() {
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                Some(Ordering::Equal)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                None
+            );
+
+            assert_eq!(SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Bool), None);
+            assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::String(StringFamily::Char)), None);
+
+            assert_eq!(SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::Numeric), None);
+            assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::String(StringFamily::Char)), None);
+        }
+
+        #[test]
+        fn varchar() {
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                Some(Ordering::Equal)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                Some(Ordering::Greater)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                None
+            );
+
+            assert_eq!(SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Bool), None);
+            assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)), None);
+
+            assert_eq!(SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::Numeric), None);
+            assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)), None);
+        }
+
+        #[test]
+        fn text() {
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                Some(Ordering::Equal)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::String(StringFamily::Char)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Char).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                Some(Ordering::Less)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::String(StringFamily::VarChar)),
+                Some(Ordering::Greater)
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::VarChar).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                Some(Ordering::Less)
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Real)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Real).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Float(FloatNumFamily::Double)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Float(FloatNumFamily::Double).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::SmallInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::SmallInt).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::Integer)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::Integer).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Int(IntNumFamily::BigInt)),
+                None
+            );
+            assert_eq!(
+                SqlTypeFamily::Int(IntNumFamily::BigInt).partial_cmp(&SqlTypeFamily::String(StringFamily::Text)),
+                None
+            );
+
+            assert_eq!(SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Bool), None);
+            assert_eq!(SqlTypeFamily::Bool.partial_cmp(&SqlTypeFamily::String(StringFamily::Text)), None);
+
+            assert_eq!(SqlTypeFamily::String(StringFamily::Text).partial_cmp(&SqlTypeFamily::Numeric), None);
+            assert_eq!(SqlTypeFamily::Numeric.partial_cmp(&SqlTypeFamily::String(StringFamily::Text)), None);
+        }
+    }
+}

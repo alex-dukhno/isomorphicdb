@@ -20,7 +20,7 @@ use postgre_sql::{
     query_response::{QueryError, QueryEvent},
     wire_protocol::payload::OutboundMessage,
 };
-use types::{SqlType, SqlTypeFamily};
+use types_old::{SqlTypeFamilyOld, SqlTypeOld};
 
 pub struct QueryExecutor;
 
@@ -48,7 +48,7 @@ impl QueryExecutor {
     pub fn execute_portal(
         &self,
         untyped_query: UntypedQuery,
-        params: Vec<SqlTypeFamily>,
+        params: Vec<SqlTypeFamilyOld>,
         arguments: Vec<ScalarValue>,
         txn: &TransactionContext,
         _query_plan_cache: &mut QueryPlanCache,
@@ -76,7 +76,7 @@ impl QueryExecutor {
             },
             Statement::Extended(extended) => match extended {
                 Extended::Prepare { query, name, param_types } => {
-                    let params: Vec<SqlTypeFamily> = param_types.into_iter().map(|dt| SqlType::from(dt).family()).collect();
+                    let params: Vec<SqlTypeFamilyOld> = param_types.into_iter().map(|dt| SqlTypeOld::from(dt).family()).collect();
                     let typed_query = txn.process(query.clone(), params.clone()).unwrap();
                     let query_plan = txn.plan(typed_query);
                     query_plan_cache.allocate(name, query_plan, query, params);

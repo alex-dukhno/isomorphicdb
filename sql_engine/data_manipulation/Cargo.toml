@@ -10,7 +10,7 @@ data_manipulation_operators = { path = "operators" }
 data_manipulation_query_plan = { path = "query_plan" }
 data_manipulation_query_result = { path = "query_result" }
 data_manipulation_typed_queries = { path = "typed_queries" }
-data_manipulation_typed_tree = { path = "typed_tree" }
+data_manipulation_typed_tree_old = { path = "typed_tree_old" }
 data_manipulation_untyped_queries = { path = "untyped_queries" }
-data_manipulation_untyped_tree = { path = "untyped_tree" }
+data_manipulation_untyped_tree_old = { path = "untyped_tree_old" }
 data_manipulation_untyped_tree_builder = { path = "untyped_tree_builder" }

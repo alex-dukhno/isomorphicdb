@@ -125,7 +125,7 @@ fn execute_deallocated_prepared_statement(with_schema: TransactionManager) {
 }
 
 #[rstest::rstest]
-#[ignore] // TODO: custom/unsupported types is not supported on parser level
+#[ignore] // TODO: custom/unsupported types_old is not supported on parser level
 fn prepare_with_wrong_type(with_schema: TransactionManager) {
     let mut query_plan_cache = QueryPlanCache::default();
     let txn = with_schema.start_transaction();
@@ -170,7 +170,7 @@ fn prepare_with_indeterminate_type(with_schema: TransactionManager) {
 
 #[rstest::rstest]
 #[ignore]
-// TODO: no parameter types is not supported
+// TODO: no parameter types_old is not supported
 // TODO: type inference is not properly implemented
 fn prepare_assign_operation_for_all_columns_analysis(with_schema: TransactionManager) {
     let mut query_plan_cache = QueryPlanCache::default();
@@ -223,7 +223,7 @@ fn prepare_assign_operation_for_all_columns_analysis(with_schema: TransactionMan
 
 #[rstest::rstest]
 #[ignore]
-// TODO: no parameter types is not supported
+// TODO: no parameter types_old is not supported
 // TODO: type inference is not properly implemented
 fn prepare_assign_operation_for_specified_columns_analysis(with_schema: TransactionManager) {
     let mut query_plan_cache = QueryPlanCache::default();
@@ -276,7 +276,7 @@ fn prepare_assign_operation_for_specified_columns_analysis(with_schema: Transact
 
 #[rstest::rstest]
 #[ignore]
-// TODO: no parameter types is not supported
+// TODO: no parameter types_old is not supported
 // TODO: type inference is not properly implemented
 fn prepare_reassign_operation_for_all_rows(with_schema: TransactionManager) {
     let mut query_plan_cache = QueryPlanCache::default();
@@ -337,7 +337,7 @@ fn prepare_reassign_operation_for_all_rows(with_schema: TransactionManager) {
 
 #[rstest::rstest]
 #[ignore]
-// TODO: no parameter types is not supported
+// TODO: no parameter types_old is not supported
 // TODO: type inference is not properly implemented
 fn prepare_reassign_operation_for_specified_rows(with_schema: TransactionManager) {
     let mut query_plan_cache = QueryPlanCache::default();

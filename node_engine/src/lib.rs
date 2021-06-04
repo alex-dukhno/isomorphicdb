@@ -17,7 +17,7 @@ use data_repr::scalar::ScalarValue;
 pub use engine::NodeEngine;
 use postgre_sql::query_ast::Query;
 use std::collections::HashMap;
-use types::SqlTypeFamily;
+use types_old::SqlTypeFamilyOld;
 
 pub mod engine;
 mod query_executor;
@@ -26,7 +26,7 @@ mod worker;
 
 #[derive(Default)]
 pub struct QueryPlanCache {
-    plans: HashMap<String, (Query, Vec<SqlTypeFamily>)>,
+    plans: HashMap<String, (Query, Vec<SqlTypeFamilyOld>)>,
     extended_query: HashMap<String, PreparedStatementState>,
     portal_per_statement: HashMap<String, Vec<String>>,
     all_portals: HashMap<String, Portal>,
@@ -81,15 +81,15 @@ impl QueryPlanCache {
         self.all_portals.get(portal).map(Portal::clone)
     }
 
-    pub fn allocate(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamily>) {
+    pub fn allocate(&mut self, name: String, _query_plan: QueryPlan, query_ast: Query, params: Vec<SqlTypeFamilyOld>) {
         self.plans.insert(name, (query_ast, params));
     }
 
-    pub fn lookup(&self, name: &str) -> Option<&(Query, Vec<SqlTypeFamily>)> {
+    pub fn lookup(&self, name: &str) -> Option<&(Query, Vec<SqlTypeFamilyOld>)> {
         self.plans.get(name)
     }
 
-    pub fn deallocate(&mut self, name: &str) -> Option<(Query, Vec<SqlTypeFamily>)> {
+    pub fn deallocate(&mut self, name: &str) -> Option<(Query, Vec<SqlTypeFamilyOld>)> {
         self.plans.remove(name)
     }
 }
@@ -113,5 +113,5 @@ pub struct Portal {
     pub untyped_query: UntypedQuery,
     pub result_value_formats: Vec<i16>,
     pub arguments: Vec<ScalarValue>,
-    pub param_types: Vec<SqlTypeFamily>,
+    pub param_types: Vec<SqlTypeFamilyOld>,
 }

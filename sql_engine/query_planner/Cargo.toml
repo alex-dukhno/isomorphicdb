@@ -9,5 +9,5 @@ publish = false
 catalog = { path = "../catalog" }
 storage = { path = "../../storage" }
 data_manipulation_typed_queries = { path = "../data_manipulation/typed_queries" }
-data_manipulation_typed_tree = { path = "../data_manipulation/typed_tree" }
+data_manipulation_typed_tree_old = { path = "../data_manipulation/typed_tree_old" }
 data_manipulation_query_plan = { path = "../data_manipulation/query_plan" }

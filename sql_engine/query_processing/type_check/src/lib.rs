@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_typed_tree::TypedTree;
+use data_manipulation_typed_tree_old::TypedTreeOld;
 
 pub struct TypeChecker;
 
 impl TypeChecker {
-    pub fn type_check(&self, tree: TypedTree) -> TypedTree {
+    pub fn type_check(&self, tree: TypedTreeOld) -> TypedTreeOld {
         tree
     }
 }

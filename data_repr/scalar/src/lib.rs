@@ -18,22 +18,22 @@ use std::{
     fmt::{self, Display, Formatter},
     str::FromStr,
 };
-use types::SqlTypeFamily;
+use types_old::SqlTypeFamilyOld;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum ScalarValue {
-    Num { value: BigDecimal, type_family: SqlTypeFamily },
+    Num { value: BigDecimal, type_family: SqlTypeFamilyOld },
     String(String),
     Bool(bool),
     Null,
 }
 
 impl ScalarValue {
-    pub fn type_family(&self) -> Option<SqlTypeFamily> {
+    pub fn type_family(&self) -> Option<SqlTypeFamilyOld> {
         match self {
             ScalarValue::Num { type_family, .. } => Some(*type_family),
-            ScalarValue::String(_) => Some(SqlTypeFamily::String),
-            ScalarValue::Bool(_) => Some(SqlTypeFamily::Bool),
+            ScalarValue::String(_) => Some(SqlTypeFamilyOld::String),
+            ScalarValue::Bool(_) => Some(SqlTypeFamilyOld::Bool),
             ScalarValue::Null => None,
         }
     }
@@ -52,23 +52,23 @@ impl ScalarValue {
         match self {
             ScalarValue::Num {
                 value,
-                type_family: SqlTypeFamily::SmallInt,
+                type_family: SqlTypeFamilyOld::SmallInt,
             } => BinaryValue::from(value.to_i16().unwrap()),
             ScalarValue::Num {
                 value,
-                type_family: SqlTypeFamily::Integer,
+                type_family: SqlTypeFamilyOld::Integer,
             } => BinaryValue::from(value.to_i32().unwrap()),
             ScalarValue::Num {
                 value,
-                type_family: SqlTypeFamily::Real,
+                type_family: SqlTypeFamilyOld::Real,
             } => BinaryValue::from(value.to_f32().unwrap()),
             ScalarValue::Num {
                 value,
-                type_family: SqlTypeFamily::Double,
+                type_family: SqlTypeFamilyOld::Double,
             } => BinaryValue::from(value.to_f64().unwrap()),
             ScalarValue::Num {
                 value,
-                type_family: SqlTypeFamily::BigInt,
+                type_family: SqlTypeFamilyOld::BigInt,
             } => BinaryValue::from(value.to_i64().unwrap()),
             ScalarValue::String(str) => BinaryValue::from(str),
             ScalarValue::Bool(boolean) => BinaryValue::from(boolean),
@@ -85,15 +85,15 @@ impl From<wire_protocol_payload::Value> for ScalarValue {
             wire_protocol_payload::Value::Bool(value) => ScalarValue::Bool(value),
             wire_protocol_payload::Value::Int16(value) => ScalarValue::Num {
                 value: BigDecimal::from(value),
-                type_family: SqlTypeFamily::SmallInt,
+                type_family: SqlTypeFamilyOld::SmallInt,
             },
             wire_protocol_payload::Value::Int32(value) => ScalarValue::Num {
                 value: BigDecimal::from(value),
-                type_family: SqlTypeFamily::Integer,
+                type_family: SqlTypeFamilyOld::Integer,
             },
             wire_protocol_payload::Value::Int64(value) => ScalarValue::Num {
                 value: BigDecimal::from(value),
-                type_family: SqlTypeFamily::BigInt,
+                type_family: SqlTypeFamilyOld::BigInt,
             },
             wire_protocol_payload::Value::String(value) => ScalarValue::String(value),
         }
@@ -105,11 +105,11 @@ impl From<query_ast::Value> for ScalarValue {
         match value {
             query_ast::Value::Int(value) => ScalarValue::Num {
                 value: BigDecimal::from(value),
-                type_family: SqlTypeFamily::Integer,
+                type_family: SqlTypeFamilyOld::Integer,
             },
             query_ast::Value::Number(value) => ScalarValue::Num {
                 value: BigDecimal::from_str(&value).unwrap(),
-                type_family: SqlTypeFamily::Double,
+                type_family: SqlTypeFamilyOld::Double,
             },
             query_ast::Value::String(value) => ScalarValue::String(value),
             query_ast::Value::Null => ScalarValue::Null,

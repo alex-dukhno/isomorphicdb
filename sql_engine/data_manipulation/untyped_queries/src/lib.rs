@@ -12,33 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use data_manipulation_untyped_tree::UntypedTree;
+use data_manipulation_untyped_tree_old::UntypedTreeOld;
 use definition::FullTableName;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UntypedInsertQuery {
     pub full_table_name: FullTableName,
-    pub values: Vec<Vec<Option<UntypedTree>>>,
+    pub values: Vec<Vec<Option<UntypedTreeOld>>>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UntypedUpdateQuery {
     pub full_table_name: FullTableName,
-    pub assignments: Vec<Option<UntypedTree>>,
-    pub filter: Option<UntypedTree>,
+    pub assignments: Vec<Option<UntypedTreeOld>>,
+    pub filter: Option<UntypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UntypedSelectQuery {
     pub full_table_name: FullTableName,
-    pub projection_items: Vec<UntypedTree>,
-    pub filter: Option<UntypedTree>,
+    pub projection_items: Vec<UntypedTreeOld>,
+    pub filter: Option<UntypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct UntypedDeleteQuery {
     pub full_table_name: FullTableName,
-    pub filter: Option<UntypedTree>,
+    pub filter: Option<UntypedTreeOld>,
 }
 
 #[derive(Debug, PartialEq, Clone)]

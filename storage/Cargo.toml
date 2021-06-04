@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 binary = { path = "../data_repr/binary" }
 scalar = { path = "../data_repr/scalar" }
-types = { path = "../types" }
+types_old = { path = "../types_old" }
 
 dashmap = "4.0.2"
 

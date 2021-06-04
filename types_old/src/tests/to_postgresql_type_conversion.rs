@@ -16,36 +16,36 @@ use super::*;
 
 #[test]
 fn boolean() {
-    let oid: u32 = (&SqlType::bool()).into();
+    let oid: u32 = (&SqlTypeOld::bool()).into();
     assert_eq!(oid, BOOL);
 }
 
 #[test]
 fn small_int() {
-    let oid: u32 = (&SqlType::small_int()).into();
+    let oid: u32 = (&SqlTypeOld::small_int()).into();
     assert_eq!(oid, SMALLINT);
 }
 
 #[test]
 fn integer() {
-    let oid: u32 = (&SqlType::integer()).into();
+    let oid: u32 = (&SqlTypeOld::integer()).into();
     assert_eq!(oid, INT);
 }
 
 #[test]
 fn big_int() {
-    let oid: u32 = (&SqlType::big_int()).into();
+    let oid: u32 = (&SqlTypeOld::big_int()).into();
     assert_eq!(oid, BIGINT);
 }
 
 #[test]
 fn char() {
-    let oid: u32 = (&SqlType::char(0)).into();
+    let oid: u32 = (&SqlTypeOld::char(0)).into();
     assert_eq!(oid, CHAR);
 }
 
 #[test]
 fn var_char() {
-    let oid: u32 = (&SqlType::var_char(0)).into();
+    let oid: u32 = (&SqlTypeOld::var_char(0)).into();
     assert_eq!(oid, VARCHAR);
 }

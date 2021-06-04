@@ -56,7 +56,7 @@ fn delete_all_from_table() {
     catalog.apply(create_schema_ops(SCHEMA)).unwrap();
 
     catalog
-        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlType::integer())]))
+        .apply(create_table_ops(SCHEMA, TABLE, vec![("col1", SqlTypeOld::integer())]))
         .unwrap();
 
     let analyzer = QueryAnalyzer::from(transaction);

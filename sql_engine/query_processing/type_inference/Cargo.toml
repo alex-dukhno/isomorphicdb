@@ -6,10 +6,10 @@ edition = "2018"
 publish = false
 
 [dependencies]
-data_manipulation_untyped_tree = { path = "../../data_manipulation/untyped_tree" }
-data_manipulation_typed_tree = { path = "../../data_manipulation/typed_tree" }
+data_manipulation_untyped_tree_old = { path = "../../data_manipulation/untyped_tree_old" }
+data_manipulation_typed_tree_old = { path = "../../data_manipulation/typed_tree_old" }
 data_manipulation_operators = { path = "../../data_manipulation/operators" }
-types = { path = "../../../types" }
+types_old = { path = "../../../types_old" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
-log = "0.4.14"
+log = "0.4"

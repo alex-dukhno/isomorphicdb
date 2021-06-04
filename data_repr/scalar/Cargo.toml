@@ -8,7 +8,7 @@ publish = false
 [dependencies]
 binary = { path = "../binary" }
 query_ast = { path = "../../postgre_sql/query_ast" }
-types = { path = "../../types" }
+types_old = { path = "../../types_old" }
 wire_protocol_payload = { path = "../../postgre_sql/wire_protocol/payload" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }

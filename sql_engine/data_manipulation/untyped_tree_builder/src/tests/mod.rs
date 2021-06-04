@@ -19,7 +19,9 @@ use query_ast::Value;
 fn string_literal() {
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::String("literal".to_owned()))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Literal("literal".to_owned()))))
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Literal(
+            "literal".to_owned()
+        ))))
     );
 }
 
@@ -27,7 +29,7 @@ fn string_literal() {
 fn integer() {
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::Int(1))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Int(1))))
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Int(1))))
     );
 }
 
@@ -35,19 +37,19 @@ fn integer() {
 fn bigint() {
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::Number("2147483648".to_owned()))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(2147483648))))
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::BigInt(2147483648))))
     );
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::Number("-2147483649".to_owned()))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(-2147483649))))
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::BigInt(-2147483649))))
     );
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::Number("9223372036854775807".to_owned()))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(9223372036854775807))))
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::BigInt(9223372036854775807))))
     );
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::Number("-9223372036854775808".to_owned()))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::BigInt(-9223372036854775808))))
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::BigInt(-9223372036854775808))))
     );
 }
 
@@ -55,19 +57,19 @@ fn bigint() {
 fn numeric() {
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::Number("-9223372036854775809".to_owned()))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Number(
             BigDecimal::from_str("-9223372036854775809").unwrap()
         ))))
     );
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::Number("9223372036854775808".to_owned()))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Number(
             BigDecimal::from_str("9223372036854775808").unwrap()
         ))))
     );
     assert_eq!(
         TreeBuilder::insert_position(Expr::Value(Value::Number("92233.72036854775808".to_owned()))),
-        Ok(UntypedTree::Item(UntypedItem::Const(UntypedValue::Number(
+        Ok(UntypedTreeOld::Item(UntypedItemOld::Const(UntypedValueOld::Number(
             BigDecimal::from_str("92233.72036854775808").unwrap()
         ))))
     );

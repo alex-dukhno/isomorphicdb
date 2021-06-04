@@ -1,0 +1,13 @@
+[package]
+name = "untyped_tree"
+version = "0.1.0"
+authors = ["alex-dukhno"]
+edition = "2018"
+publish = false
+
+[dependencies]
+operators = { path = "../operators" }
+typed_tree = { path = "../typed_tree" }
+types = { path = "../../types" }
+
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

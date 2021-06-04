@@ -10,7 +10,7 @@ query_ast = { path = "../query_ast" }
 query_response = { path = "../query_response" }
 
 postgres-parser = "0.2"
-log = "0.4.14"
+log = "0.4"
 
 [dev-dependencies]
 rstest = "0.10.0"

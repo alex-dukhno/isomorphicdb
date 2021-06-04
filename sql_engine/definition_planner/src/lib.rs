@@ -20,7 +20,7 @@ use definition::{FullTableName, SchemaName};
 use query_ast::{ColumnDef, Definition};
 use query_response::QueryError;
 use storage::Transaction;
-use types::SqlType;
+use types_old::SqlTypeOld;
 
 pub struct DefinitionPlanner<'p> {
     catalog: CatalogHandler<'p>,
@@ -51,7 +51,7 @@ impl<'p> DefinitionPlanner<'p> {
                         .into_iter()
                         .map(|ColumnDef { name, data_type }| ColumnInfo {
                             name,
-                            sql_type: SqlType::from(data_type),
+                            sql_type: SqlTypeOld::from(data_type),
                         })
                         .collect::<Vec<_>>();
                     Ok(SchemaChange::CreateTable(CreateTableQuery {

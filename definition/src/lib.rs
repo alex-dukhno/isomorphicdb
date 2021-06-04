@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use std::fmt::{self, Display, Formatter};
-use types::SqlType;
+use types_old::SqlTypeOld;
 
 #[derive(Debug, PartialEq)]
 pub struct FullIndexName {
@@ -109,12 +109,12 @@ impl SchemaName {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ColumnDef {
     name: String,
-    sql_type: SqlType,
+    sql_type: SqlTypeOld,
     ord_num: usize,
 }
 
 impl ColumnDef {
-    pub fn new(name: String, sql_type: SqlType, ord_num: usize) -> ColumnDef {
+    pub fn new(name: String, sql_type: SqlTypeOld, ord_num: usize) -> ColumnDef {
         ColumnDef { name, sql_type, ord_num }
     }
 
@@ -122,7 +122,7 @@ impl ColumnDef {
         &self.name
     }
 
-    pub fn sql_type(&self) -> SqlType {
+    pub fn sql_type(&self) -> SqlTypeOld {
         self.sql_type
     }
 

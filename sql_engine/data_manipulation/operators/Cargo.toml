@@ -7,13 +7,13 @@ publish = false
 
 [dependencies]
 data_manipulation_query_result = { path = "../query_result" }
-types = { path = "../../../types" }
+types_old = { path = "../../../types_old" }
 query_ast = { path = "../../../postgre_sql/query_ast" }
 scalar = { path = "../../../data_repr/scalar" }
 
 bigdecimal = { version = "0.2.0", features = ["string-only"] }
 regex = "1.4.3"
-log = "0.4.14"
+log = "0.4"
 
 [dev-dependencies]
 rstest = "0.10.0"

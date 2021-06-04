@@ -14,8 +14,8 @@
 
 use catalog::CatalogHandler;
 use data_manipulation_untyped_queries::{UntypedDeleteQuery, UntypedInsertQuery, UntypedQuery, UntypedSelectQuery, UntypedUpdateQuery};
-use data_manipulation_untyped_tree::{UntypedItem, UntypedTree};
 use data_manipulation_untyped_tree_builder::{TreeBuilder, UntypedExpressionError};
+use data_manipulation_untyped_tree_old::{UntypedItemOld, UntypedTreeOld};
 use definition::FullTableName;
 use query_ast::{Assignment, DeleteQuery, InsertQuery, InsertSource, Query, SelectItem, SelectQuery, UpdateQuery, Values};
 use query_response::QueryError;
@@ -161,7 +161,7 @@ impl<'a> QueryAnalyzer<'a> {
                             match item {
                                 SelectItem::Wildcard => {
                                     for (index, table_column) in table_columns.iter().enumerate() {
-                                        projection_items.push(UntypedTree::Item(UntypedItem::Column {
+                                        projection_items.push(UntypedTreeOld::Item(UntypedItemOld::Column {
                                             name: table_column.name().to_lowercase(),
                                             index,
                                             sql_type: table_column.sql_type(),

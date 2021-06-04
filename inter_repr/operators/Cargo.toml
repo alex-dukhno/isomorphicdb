@@ -1,0 +1,13 @@
+[package]
+name = "operators"
+version = "0.1.0"
+authors = ["alex-dukhno"]
+edition = "2018"
+publish = false
+
+[dependencies]
+types = { path = "../../types" }
+query_ast = { path = "../../postgre_sql/query_ast" }
+
+[dev-dependencies]
+rstest = "0.10.0"

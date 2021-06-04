@@ -1,0 +1,12 @@
+[package]
+name = "expression_validator"
+version = "0.1.0"
+authors = ["alex-dukhno"]
+edition = "2018"
+publish = false
+
+[dependencies]
+operators = { path = "../inter_repr/operators" }
+untyped_tree = { path = "../inter_repr/untyped_tree" }
+typed_tree = { path = "../inter_repr/typed_tree" }
+types = { path = "../types" }
