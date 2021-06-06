@@ -27,14 +27,6 @@ fn untyped_char() -> UntypedTree {
     })
 }
 
-fn typed_char() -> TypedTree {
-    TypedTree::Item(TypedItem::Column {
-        name: "column_name".to_owned(),
-        sql_type: SqlTypeFamily::String(StringFamily::Char),
-        index: 0,
-    })
-}
-
 fn untyped_null() -> UntypedTree {
     UntypedTree::Item(UntypedItem::Const(UntypedValue::Null))
 }

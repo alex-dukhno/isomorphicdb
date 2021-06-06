@@ -13,10 +13,7 @@
 // limitations under the License.
 
 use super::*;
-use types::FloatNumFamily;
-use types::IntNumFamily;
-use types::StringFamily;
-use types::TemporalFamily;
+use types::{FloatNumFamily, IntNumFamily, StringFamily, TemporalFamily};
 
 #[cfg(test)]
 mod addition {
