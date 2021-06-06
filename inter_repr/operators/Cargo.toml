@@ -10,4 +10,4 @@ types = { path = "../../types" }
 query_ast = { path = "../../postgre_sql/query_ast" }
 
 [dev-dependencies]
-rstest = "0.10.0"
+rstest = "0.10"

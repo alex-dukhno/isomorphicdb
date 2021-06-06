@@ -10,3 +10,6 @@ operators = { path = "../inter_repr/operators" }
 untyped_tree = { path = "../inter_repr/untyped_tree" }
 typed_tree = { path = "../inter_repr/typed_tree" }
 types = { path = "../types" }
+
+[dev-dependencies]
+bigdecimal = { version = "0.2.0", features = ["string-only"] }

@@ -12,24 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use operators::UnOperator;
+use operators::{BiOperator, UnOperator};
+use std::cmp::Ordering;
 use typed_tree::TypedTree;
 use types::SqlTypeFamily;
 use untyped_tree::UntypedTree;
 
 #[derive(Debug, PartialEq)]
-pub enum ExpressionError {
-    DatatypeMismatch { expected: SqlTypeFamily, actual: SqlTypeFamily },
+pub enum ExpressionValidationError {
+    DatatypeMismatch {
+        expected: SqlTypeFamily,
+        actual: SqlTypeFamily,
+    },
+    UndefinedBinaryFunction {
+        op: BiOperator,
+        left: SqlTypeFamily,
+        right: SqlTypeFamily,
+    },
 }
 
 pub struct ExpressionValidator;
 
 impl ExpressionValidator {
-    pub fn validate(&self, untyped_tree: UntypedTree, end_type: SqlTypeFamily) -> Result<TypedTree, ExpressionError> {
+    pub fn validate(&self, untyped_tree: UntypedTree, end_type: SqlTypeFamily) -> Result<TypedTree, ExpressionValidationError> {
         let typed_tree = self.inner_process(untyped_tree, end_type);
         let expression_type = typed_tree.type_family();
+        println!("expr {:?} end {:?}", expression_type, end_type);
         match expression_type.partial_cmp(&end_type) {
-            None => Err(ExpressionError::DatatypeMismatch {
+            None => Err(ExpressionValidationError::DatatypeMismatch {
                 expected: end_type,
                 actual: expression_type,
             }),
@@ -50,15 +60,26 @@ impl ExpressionValidator {
     fn inner_process(&self, untyped_tree: UntypedTree, end_type: SqlTypeFamily) -> TypedTree {
         match untyped_tree {
             UntypedTree::BiOp { op, left, right } => {
-                let typed_left = self.inner_process(*left, end_type);
-                let left_coerced = self.type_coerce(typed_left);
-                let typed_right = self.inner_process(*right, end_type);
-                let right_coerced = self.type_coerce(typed_right);
-                let return_type = op.infer_return_type(left_coerced.type_family(), right_coerced.type_family());
+                let mut typed_left = self.inner_process(*left, end_type);
+                let mut typed_right = self.inner_process(*right, end_type);
+                println!("left {:?} right {:?}", typed_left.type_family(), typed_right.type_family());
+                let return_type = op.infer_return_type(typed_left.type_family(), typed_right.type_family());
+                if typed_left.type_family().partial_cmp(&return_type) != Some(Ordering::Equal) {
+                    typed_left = TypedTree::UnOp {
+                        op: UnOperator::Cast(return_type),
+                        item: Box::new(typed_left),
+                    };
+                }
+                if typed_right.type_family().partial_cmp(&return_type) != Some(Ordering::Equal) {
+                    typed_right = TypedTree::UnOp {
+                        op: UnOperator::Cast(return_type),
+                        item: Box::new(typed_right),
+                    };
+                }
                 TypedTree::BiOp {
                     op,
-                    left: Box::new(left_coerced),
-                    right: Box::new(right_coerced),
+                    left: Box::new(typed_left),
+                    right: Box::new(typed_right),
                     type_family: return_type,
                 }
             }
@@ -68,18 +89,13 @@ impl ExpressionValidator {
                     _ => end_type,
                 };
                 let typed_item = self.inner_process(*item, end_type);
-                let type_coerced = self.type_coerce(typed_item);
                 TypedTree::UnOp {
                     op,
-                    item: Box::new(type_coerced),
+                    item: Box::new(typed_item),
                 }
             }
             UntypedTree::Item(item) => TypedTree::Item(item.infer_type()),
         }
-    }
-
-    fn type_coerce(&self, typed_tree: TypedTree) -> TypedTree {
-        typed_tree
     }
 }
 

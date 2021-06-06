@@ -10,4 +10,4 @@ query_ast = { path = "../postgre_sql/query_ast" }
 wire_protocol_payload = { path = "../postgre_sql/wire_protocol/payload" }
 
 [dev-dependencies]
-rstest = "0.10.0"
+rstest = "0.10"

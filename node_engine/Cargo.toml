@@ -31,4 +31,4 @@ native-tls = "0.2.7"
 
 [dev-dependencies]
 simple_logger = { version = "1.10.0", default-features = false }
-rstest = "0.10.0"
+rstest = "0.10"

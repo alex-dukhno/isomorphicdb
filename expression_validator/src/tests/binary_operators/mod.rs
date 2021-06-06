@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod binary;
-mod unary;
+use super::*;
 
-pub use binary::*;
-pub use unary::*;
+#[cfg(test)]
+mod addition;

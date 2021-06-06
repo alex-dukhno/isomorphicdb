@@ -19,6 +19,6 @@ use types::IntNumFamily;
 use untyped_tree::{UntypedItem, UntypedValue};
 
 #[cfg(test)]
-mod addition;
+mod binary_operators;
 #[cfg(test)]
 mod constant;
