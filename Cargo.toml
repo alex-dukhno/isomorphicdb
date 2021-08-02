@@ -8,7 +8,7 @@ edition = "2018"
 node_engine = { path = "node_engine" }
 storage = { path = "storage" }
 
-simple_logger = { version = "1.10.0", default-features = false }
+simple_logger = { version = "1.12.1", default-features = false }
 
 [workspace]
 members = [
