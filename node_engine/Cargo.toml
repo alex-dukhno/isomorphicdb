@@ -27,7 +27,7 @@ bigdecimal = { version = "0.2.0", features = ["string-only"] }
 log = "0.4.14"
 rand_core = "0.6.2"
 rand = "0.8.3"
-native-tls = "0.2.7"
+native-tls = "0.2.8"
 
 [dev-dependencies]
 simple_logger = { version = "1.10.0", default-features = false }
